@@ -1,0 +1,39 @@
+{
+  "name": "Central DENF - Gestão de Déficit de Profissionais e Remanejamento",
+  "short_name": "Central DENF",
+  "description": "Sistema hospitalar para comunicação de ausências, cálculo de criticidade e remanejamento da equipe de enfermagem.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#F9F7F2",
+  "theme_color": "#5A5A40",
+  "orientation": "any",
+  "categories": ["medical", "productivity", "health"],
+  "icons": [
+    {
+      "src": "/pwa-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

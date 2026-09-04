@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#5A5A40"/>
+  <!-- Subtle inner boundary -->
+  <rect x="24" y="24" width="464" height="464" rx="80" fill="none" stroke="#D1A661" stroke-width="6" stroke-opacity="0.3"/>
+  <!-- Central emblem circle -->
+  <circle cx="256" cy="256" r="170" fill="#4A4A35" stroke="#D1A661" stroke-width="8"/>
+  <!-- Medical Care Cross -->
+  <rect x="226" y="146" width="60" height="220" rx="14" fill="#FFFFFF"/>
+  <rect x="146" y="226" width="220" height="60" rx="14" fill="#FFFFFF"/>
+  <!-- Central Pulse / Care Star in Gold -->
+  <circle cx="256" cy="256" r="26" fill="#D1A661"/>
+  <path d="M 230 256 L 246 256 L 252 242 L 260 270 L 266 256 L 282 256" fill="none" stroke="#2D2D2A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

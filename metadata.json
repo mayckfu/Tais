@@ -1,0 +1,6 @@
+{
+  "name": "Sistema de Gestão de Déficit de Profissionais e Remanejamento",
+  "description": "Sistema hospitalar completo para comunicação, avaliação, decisão e controle de déficit profissional e remanejamento com rastreabilidade, indicadores e alertas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5A5A40"/>
+      <stop offset="100%" stop-color="#3E3E32"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#grad)"/>
+  <rect x="56" y="56" width="400" height="400" rx="72" fill="#4A4A35" stroke="#8C9C82" stroke-width="8" stroke-opacity="0.35"/>
+  <!-- Hospital Medical Cross -->
+  <rect x="216" y="136" width="80" height="240" rx="20" fill="#F9F7F2"/>
+  <rect x="136" y="216" width="240" height="80" rx="20" fill="#F9F7F2"/>
+  <!-- Central Badge in Gold/Amber -->
+  <circle cx="256" cy="256" r="28" fill="#D1A661"/>
+  <circle cx="256" cy="256" r="14" fill="#5A5A40"/>
+</svg>
