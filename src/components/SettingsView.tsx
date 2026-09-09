@@ -20,7 +20,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newCategory, setNewCategory] = useState('');
   const [successMsg, setSuccessMsg] = useState(false);
 
-  const isDENFOrAdmin = currentUser.role === 'denf' || currentUser.role === 'admin';
+  const isDENFOrAdmin =
+    currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
 
   const handleAddSector = () => {
     if (!newSector.trim() || formData.sectors.includes(newSector.trim())) return;

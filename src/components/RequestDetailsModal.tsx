@@ -53,7 +53,8 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
     | 'auditoria'
   >('resumo');
 
-  const isDENFOrAdmin = currentUser.role === 'denf' || currentUser.role === 'admin';
+  const isDENFOrAdmin =
+    currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
   const isClosedOrCancelled = request.status === 'encerrada' || request.status === 'cancelada';
 
   return (
@@ -110,7 +111,11 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                   className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold shadow-xs flex items-center gap-1.5"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
-                  <span>Decisão DENF</span>
+                  <span>
+                    {currentUser.role === 'coordenador'
+                      ? 'Decisão da Coordenação'
+                      : 'Decisão DENF'}
+                  </span>
                 </button>
               )}
 

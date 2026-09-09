@@ -111,7 +111,7 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
         {
           id: `tl-dec-${Date.now()}`,
           timestamp: nowTime,
-          title: `Decisão DENF: ${conduct.replace('_', ' ').toUpperCase()}`,
+          title: `Decisão ${currentUser.role === 'coordenador' ? 'Coordenação' : 'DENF'}: ${conduct.replace('_', ' ').toUpperCase()}`,
           description:
             conduct === 'remanejamento_interno'
               ? `Autorizada cessão de ${quantityApproved} prof. do setor ${originSector} para ${request.solicitorSector}.`
@@ -130,7 +130,7 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
           requestId: request.id,
           protocol: request.protocol,
           user: currentUser.name,
-          action: 'Registro de Decisão da DENF',
+          action: `Registro de Decisão (${currentUser.roleTitle})`,
           fieldAffected: 'status',
           oldValue: request.status,
           newValue: newStatus,
@@ -151,7 +151,9 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
             <UserCheck className="w-5 h-5 text-teal-300" />
             <div>
               <span className="text-[10px] uppercase font-bold text-teal-200">
-                Central DENF • Análise Decisória
+                {currentUser.role === 'coordenador'
+                  ? 'Coordenação / DENF • Análise Decisória'
+                  : 'Central DENF • Análise Decisória'}
               </span>
               <h3 className="text-base font-extrabold">
                 {request.protocol} — {request.solicitorSector}
@@ -195,7 +197,9 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
           {/* Conduta adotada (Section 9) */}
           <div>
             <label className="block font-bold text-slate-800 mb-1">
-              Conduta Adotada pela DENF / Gestão *
+              {currentUser.role === 'coordenador'
+                ? 'Conduta Adotada pela Coordenação / Gestão *'
+                : 'Conduta Adotada pela DENF / Gestão *'}
             </label>
             <select
               value={conduct}

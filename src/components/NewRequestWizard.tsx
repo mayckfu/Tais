@@ -62,7 +62,13 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
   );
   const [solicitorSectorCustom, setSolicitorSectorCustom] = useState<string>('');
   const [solicitorName, setSolicitorName] = useState<string>(currentUser.name);
-  const [solicitorRole, setSolicitorRole] = useState<string>('Enfermeiro');
+  const [solicitorRole, setSolicitorRole] = useState<string>(
+    currentUser.role === 'coordenador'
+      ? 'Coordenador'
+      : currentUser.role === 'denf'
+      ? 'Gestor'
+      : 'Enfermeiro'
+  );
   const [solicitorRoleCustom, setSolicitorRoleCustom] = useState<string>('');
 
   // Etapa 2: Caracterização do Déficit

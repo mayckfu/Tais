@@ -150,7 +150,7 @@ export default function App() {
     }
 
     // Navigate to requests or DENF queue
-    if (currentUser.role === 'denf' || currentUser.role === 'admin') {
+    if (currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador') {
       setCurrentTab('denf_queue');
     } else {
       setCurrentTab('requests');

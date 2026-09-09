@@ -64,8 +64,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenInstallModal,
 }) => {
   const role = currentUser?.role || propUserRole || 'solicitante';
-  const canAccessDENF = role === 'denf' || role === 'admin';
-  const canAccessAdmin = role === 'admin';
+  const canAccessDENF = role === 'denf' || role === 'admin' || role === 'coordenador';
+  const canAccessAdmin = role === 'admin' || role === 'denf' || role === 'coordenador';
 
   const pendingCount = counts?.pendingAnalysis ?? pendingQueueCount;
   const activeRelocCount = counts?.activeRelocations ?? activeRelocationsCount;

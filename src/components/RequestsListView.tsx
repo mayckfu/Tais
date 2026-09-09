@@ -146,7 +146,8 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
     setSelectedPeriod('all');
   };
 
-  const isDENFOrAdmin = currentUser.role === 'denf' || currentUser.role === 'admin';
+  const isDENFOrAdmin =
+    currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
 
   return (
     <div id="requests-list-view" className="space-y-6">

@@ -88,7 +88,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .slice(0, 6);
   }, [visibleRequests]);
 
-  const isDENFOrAdmin = currentUser.role === 'denf' || currentUser.role === 'admin';
+  const isDENFOrAdmin =
+    currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
 
   return (
     <div id="dashboard-view" className="space-y-6">
