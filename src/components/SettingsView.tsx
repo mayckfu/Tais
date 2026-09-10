@@ -74,7 +74,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
           <h2 className="text-xl font-extrabold text-slate-900 mt-1">Configurações do Sistema</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Cadastros de setores, categorias, pesos do algoritmo de priorização e parâmetros hospitalares.
+            Cadastros de setores, categorias, critérios de priorização clínica e parâmetros hospitalares.
           </p>
         </div>
 
@@ -208,11 +208,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
-              <span className="font-bold text-slate-700 block">Pesos do Score de Prioridade</span>
+              <span className="font-bold text-slate-700 block">Classificação de Prioridade Clínica</span>
               <p className="text-[11px] text-slate-500">
-                Crítica: 40 pts • Alta: 25 pts • Moderada: 15 pts • Baixa: 5 pts + Fatores de Risco.
+                Priorização assistencial: Imediata, Alta, Atenção e Normal, com base em criticidade, perfil do déficit e segurança do paciente.
               </p>
-              <span className="font-bold text-teal-800 block mt-1">Algoritmo Ativo</span>
+              <span className="font-bold text-teal-800 block mt-1">Classificação Ativa</span>
             </div>
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">

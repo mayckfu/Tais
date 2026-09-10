@@ -157,14 +157,14 @@ export const DENFQueueView: React.FC<DENFQueueViewProps> = ({
           <table className="w-full text-left text-xs border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-[#F9F7F2] text-[#7D7D72] font-bold border-b border-[#E8E6D9] uppercase text-[10px] tracking-wider">
-                <th className="py-3.5 px-4">Prioridade & Protocolo</th>
+                <th className="py-3.5 px-4">Fila & Protocolo</th>
                 <th className="py-3.5 px-4">Horário / Espera</th>
                 <th className="py-3.5 px-4">Setor</th>
                 <th className="py-3.5 px-4">Déficit</th>
                 <th className="py-3.5 px-4">Classificação</th>
                 <th className="py-3.5 px-4">Criticidade</th>
                 <th className="py-3.5 px-4">Remanejamento Solicitado</th>
-                <th className="py-3.5 px-4">Score</th>
+                <th className="py-3.5 px-4">Prioridade</th>
                 <th className="py-3.5 px-4 text-right">Ação DENF</th>
               </tr>
             </thead>

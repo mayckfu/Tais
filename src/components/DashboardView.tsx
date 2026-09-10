@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { DeficitRequest, User } from '../types';
-import { RequestStatusBadge, CriticalityBadge } from './StatusBadge';
+import { RequestStatusBadge, CriticalityBadge, RelocationStatusBadge } from './StatusBadge';
 import { PriorityScoreBadge } from './PriorityBadge';
 import {
   ShieldAlert,
@@ -13,6 +13,9 @@ import {
   ArrowRight,
   TrendingUp,
   Flame,
+  UserCheck,
+  AlertCircle,
+  FileText,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -22,6 +25,7 @@ interface DashboardViewProps {
   onOpenNewRequest: () => void;
   onOpenDetails: (request: DeficitRequest) => void;
   onOpenDecision: (request: DeficitRequest) => void;
+  onOpenClosure?: (request: DeficitRequest) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -31,6 +35,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenNewRequest,
   onOpenDetails,
   onOpenDecision,
+  onOpenClosure,
 }) => {
   // Scoped requests if solicitante
   const visibleRequests = useMemo(() => {
@@ -69,17 +74,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return r.status === 'resolvida' || r.status === 'solucao_interna' || r.status === 'encerrada';
   }).length;
 
-  // Urgent attention items (Critical or Emergency pending)
+  // Urgent attention items (Critical, Emergency, Immediate or High priority pending closure)
   const urgentRequests = useMemo(() => {
     return visibleRequests
       .filter(
         (r) =>
-          (r.criticality === 'critica' || r.classification === 'emergencial') &&
+          (r.criticality === 'critica' ||
+            r.criticality === 'alta' ||
+            r.classification === 'emergencial' ||
+            r.priorityLevel === 'imediata' ||
+            r.priorityLevel === 'alta') &&
           r.status !== 'encerrada' &&
           r.status !== 'cancelada'
       )
-      .slice(0, 4);
+      .slice(0, 5);
   }, [visibleRequests]);
+
+  const getConductLabel = (conductType?: string, custom?: string) => {
+    if (!conductType) return 'Conduta Registrada';
+    const labels: Record<string, string> = {
+      remanejamento_interno: 'Remanejamento Interno de Profissional',
+      sobreaviso: 'Acionamento de Sobreaviso',
+      cobertura_proprio_setor: 'Cobertura pelo Próprio Setor',
+      troca_plantao: 'Troca de Plantão',
+      convocacao: 'Convocação / Hora Extra',
+      redistribuicao_pacientes: 'Redistribuição de Leitos / Pacientes',
+      nao_autorizado: 'Não Autorizado / Recusado pela DENF',
+      outro: custom || 'Outra Deliberação',
+    };
+    return labels[conductType] || custom || conductType;
+  };
 
   // Recent 6 requests
   const recentRequests = useMemo(() => {
@@ -265,61 +289,180 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </h2>
             </div>
             <button
-              onClick={() => onNavigateTab('denf_queue')}
+              onClick={() => onNavigateTab(currentUser.role === 'solicitante' ? 'requests' : 'denf_queue')}
               className="text-xs font-bold text-[#5A5A40] hover:text-[#3E3E32]"
             >
-              Ver todas na Fila →
+              {currentUser.role === 'solicitante' ? 'Minhas Solicitações →' : 'Ver todas na Fila →'}
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             {urgentRequests.length === 0 ? (
               <div className="py-8 text-center text-[#8E8E80] text-xs">
                 <CheckCircle2 className="w-6 h-6 text-[#8C9C82] mx-auto mb-1.5" />
-                <span>Nenhuma ocorrência crítica ou emergencial pendente no momento.</span>
+                <span>Nenhuma ocorrência prioritária ou crítica pendente no momento.</span>
               </div>
             ) : (
-              urgentRequests.map((req) => (
-                <div
-                  key={req.id}
-                  className="p-4 rounded-xl border border-[#E8E6D9] bg-[#F9F7F2] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#8C9C82] transition-all"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-xs text-[#2D2D2A]">
-                        {req.protocol}
-                      </span>
-                      <CriticalityBadge criticality={req.criticality} />
-                      <span className="text-[11px] text-[#8E8E80]">
-                        {req.requestDate} {req.requestTime}
-                      </span>
-                    </div>
-                    <div className="text-xs font-bold text-[#2D2D2A]">
-                      {req.solicitorSector}: {req.absentQuantity}x {req.absentCategory}
-                    </div>
-                    <p className="text-[11px] text-[#7D7D72]">
-                      Plantão: {req.affectedShift} • Solicitante: {req.solicitorName}
-                    </p>
-                  </div>
+              urgentRequests.map((req) => {
+                const hasRelocations = req.relocations && req.relocations.length > 0;
+                const isAttended =
+                  req.status === 'resolvida' ||
+                  req.status === 'solucao_interna' ||
+                  req.status === 'remanejamento_autorizado' ||
+                  req.status === 'remanejamento_em_andamento' ||
+                  hasRelocations;
 
-                  <div className="flex items-center gap-2">
-                    {isDENFOrAdmin && (
-                      <button
-                        onClick={() => onOpenDecision(req)}
-                        className="px-3.5 py-1.5 rounded-lg bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold text-xs shadow-xs"
-                      >
-                        Analisar
-                      </button>
+                return (
+                  <div
+                    key={req.id}
+                    className="p-4 rounded-xl border border-[#E8E6D9] bg-[#F9F7F2] flex flex-col gap-3 hover:border-[#8C9C82] transition-all"
+                  >
+                    {/* Linha 1: Identificação, Status Oficial e Prioridade */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8E6D9]/70 pb-2.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-bold text-xs text-[#2D2D2A] bg-white px-2 py-0.5 rounded border border-[#E8E6D9]">
+                          {req.protocol}
+                        </span>
+                        <RequestStatusBadge status={req.status} />
+                        <CriticalityBadge criticality={req.criticality} />
+                        <PriorityScoreBadge score={req.priorityScore} level={req.priorityLevel} />
+                      </div>
+                      <span className="text-[11px] text-[#8E8E80] font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-[#8E8E80]" />
+                        {req.requestDate} às {req.requestTime}
+                      </span>
+                    </div>
+
+                    {/* Linha 2: Setor Solicitante e Déficit */}
+                    <div className="text-xs">
+                      <span className="font-bold text-[#2D2D2A] text-sm">
+                        {req.solicitorSector}:
+                      </span>{' '}
+                      <span className="font-extrabold text-[#9E5A4E]">
+                        {req.absentQuantity}x {req.absentCategory}
+                      </span>
+                      <p className="text-[11px] text-[#7D7D72] mt-0.5">
+                        Plantão: <strong>{req.affectedShift}</strong> • Solicitante: <strong>{req.solicitorName}</strong>
+                        {req.absentReason && (
+                          <span className="capitalize"> • Motivo: {req.absentReason.replace('_', ' ')}</span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Linha 3: Status Real do Atendimento / Remanejamento em Tempo Real */}
+                    {hasRelocations ? (
+                      <div className="p-3 rounded-lg bg-white border border-[#E8E6D9] space-y-2 shadow-2xs">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-[#2D2D2A] flex items-center gap-1.5">
+                            <ArrowRightLeft className="w-3.5 h-3.5 text-[#5A6D50]" />
+                            Remanejamento Assistencial Designado:
+                          </span>
+                          <span className="text-[10px] text-[#7D7D72]">
+                            Central DENF
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {req.relocations.map((rel) => (
+                            <div
+                              key={rel.id}
+                              className="flex flex-wrap items-center justify-between gap-2 text-xs p-2 rounded bg-[#F9F7F2] border border-[#E8E6D9]/70"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-[#2D2D2A]">
+                                  {rel.professionalName || `${rel.quantity}x ${rel.category}`}
+                                </span>
+                                <span className="text-[11px] text-[#7D7D72]">
+                                  ({rel.originSector} → {rel.destinationSector})
+                                </span>
+                              </div>
+                              <RelocationStatusBadge status={rel.status} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : req.decision ? (
+                      <div className="p-2.5 rounded-lg bg-white border border-[#E8E6D9] text-xs space-y-1 shadow-2xs">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-bold text-[#2D2D2A] flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#5A6D50]" />
+                            Conduta Definida pela Central DENF:
+                          </span>
+                          <span className="text-[10px] text-[#7D7D72]">
+                            Decidido por {req.decision.decidedBy}
+                          </span>
+                        </div>
+                        <p className="text-[#2D2D2A] font-semibold text-[11px]">
+                          {getConductLabel(req.decision.conductType, req.decision.conductCustom)}
+                        </p>
+                        {(req.decision.decisionNotes || req.decision.denialJustification) && (
+                          <p className="text-[11px] text-[#7D7D72] italic bg-[#F9F7F2] p-1.5 rounded">
+                            "{req.decision.denialJustification || req.decision.decisionNotes}"
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-2.5 rounded-lg bg-[#D1A661]/10 border border-[#D1A661]/30 text-xs text-[#7A581E] flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5 text-[#BA8F4D] shrink-0 animate-pulse" />
+                        <span className="text-[11px]">
+                          Aguardando análise e deliberação da Central DENF / Coordenação de Enfermagem.
+                        </span>
+                      </div>
                     )}
-                    <button
-                      onClick={() => onOpenDetails(req)}
-                      className="px-3.5 py-1.5 rounded-lg border border-[#E8E6D9] bg-white hover:bg-[#F9F7F2] text-[#2D2D2A] font-semibold text-xs"
-                    >
-                      Detalhes
-                    </button>
+
+                    {/* Linha 4: Ações Operacionais (Encerramento pelo Enfermeiro ou Deliberação DENF) */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#E8E6D9]/50">
+                      <div className="text-[11px] text-[#7D7D72]">
+                        {isAttended ? (
+                          <span className="text-[#3E4D36] font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-[#5A6D50]" />
+                            Atendimento prestado. Pronto para registro de desfecho pelo plantonista.
+                          </span>
+                        ) : (
+                          <span className="text-[#7D7D72]">
+                            Ocorrência aguardando providências.
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 ml-auto">
+                        {/* Botão de Encerramento / Desfecho se atendida/remanejada */}
+                        {isAttended && req.status !== 'encerrada' && (
+                          <button
+                            id={`btn-closure-card-${req.id}`}
+                            onClick={() => (onOpenClosure ? onOpenClosure(req) : onOpenDetails(req))}
+                            className="px-3.5 py-1.5 rounded-lg bg-[#4A6344] hover:bg-[#3B5036] text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
+                            title="Registrar desfecho e encerrar o chamado"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Registrar Desfecho (Encerrar)</span>
+                          </button>
+                        )}
+
+                        {/* Botão de Deliberação para DENF se ainda pendente */}
+                        {isDENFOrAdmin &&
+                          (req.status === 'aguardando_analise' || req.status === 'em_analise') && (
+                            <button
+                              id={`btn-decision-card-${req.id}`}
+                              onClick={() => onOpenDecision(req)}
+                              className="px-3.5 py-1.5 rounded-lg bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>Deliberar / Analisar</span>
+                            </button>
+                          )}
+
+                        <button
+                          id={`btn-details-card-${req.id}`}
+                          onClick={() => onOpenDetails(req)}
+                          className="px-3.5 py-1.5 rounded-lg border border-[#E8E6D9] bg-white hover:bg-[#F9F7F2] text-[#2D2D2A] font-semibold text-xs transition-colors"
+                        >
+                          Ver Detalhes
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -410,7 +553,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <th className="py-3 px-4">Ausência</th>
                 <th className="py-3 px-4">Criticidade</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Score</th>
+                <th className="py-3 px-4">Prioridade</th>
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>

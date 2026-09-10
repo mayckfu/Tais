@@ -10,6 +10,7 @@ import {
   Building,
 } from 'lucide-react';
 import { RequestStatusBadge, CriticalityBadge } from './StatusBadge';
+import { PriorityBadge } from './PriorityBadge';
 
 interface ReportsViewProps {
   requests: DeficitRequest[];
@@ -55,7 +56,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ requests }) => {
       'Qtd Remanejamento',
       'Setor Destino',
       'Status',
-      'Score Prioridade',
+      'Prioridade',
       'Impacto Assistencial',
       'Risco Segurança',
     ];
@@ -80,7 +81,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ requests }) => {
       r.requestedRelocationQuantity || 0,
       `"${r.destinationSector || ''}"`,
       `"${r.status}"`,
-      r.priorityScore,
+      `"${r.priorityLevel.toUpperCase()}"`,
       `"${r.impactAssessment?.assistentialImpact || 'N/A'}"`,
       r.impactAssessment?.patientSecurityRisk ? 'Sim' : 'Não',
     ]);
@@ -266,7 +267,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ requests }) => {
                 <th className="py-2.5 px-3">Criticidade</th>
                 <th className="py-2.5 px-3">Remanejamento</th>
                 <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3 text-right">Score</th>
+                <th className="py-2.5 px-3 text-right">Prioridade</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -292,8 +293,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ requests }) => {
                   <td className="py-2.5 px-3 capitalize">
                     {req.status.replace('_', ' ')}
                   </td>
-                  <td className="py-2.5 px-3 text-right font-bold font-mono">
-                    {req.priorityScore} pts
+                  <td className="py-2.5 px-3 text-right">
+                    <PriorityBadge level={req.priorityLevel} />
                   </td>
                 </tr>
               ))}

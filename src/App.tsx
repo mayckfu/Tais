@@ -343,6 +343,7 @@ export default function App() {
               onOpenNewRequest={() => setCurrentTab('new_request')}
               onOpenDetails={setDetailsRequest}
               onOpenDecision={setDecisionRequest}
+              onOpenClosure={setClosureRequest}
             />
           )}
 

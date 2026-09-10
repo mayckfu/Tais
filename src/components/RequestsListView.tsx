@@ -170,7 +170,7 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
             className="p-2 border border-slate-300 rounded-lg text-xs bg-white font-medium flex-1 sm:flex-initial"
           >
             <option value="createdAt">Data / Horário</option>
-            <option value="priorityScore">Score de Prioridade</option>
+            <option value="priorityScore">Nível de Prioridade</option>
             <option value="criticality">Grau de Criticidade</option>
           </select>
           <button
@@ -318,7 +318,7 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
                 <th className="py-3 px-4">Criticidade</th>
                 <th className="py-3 px-4">Remanejamento</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Score</th>
+                <th className="py-3 px-4">Prioridade</th>
                 <th className="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
