@@ -45,9 +45,6 @@ import { ImpactModal } from './components/ImpactModal';
 import { ClosureModal } from './components/ClosureModal';
 import { CancelModal } from './components/CancelModal';
 import { ArrivalConfirmationModal } from './components/ArrivalConfirmationModal';
-import { TabletBottomBar } from './components/TabletBottomBar';
-import { InstallTabletModal } from './components/InstallTabletModal';
-import { OfflineIndicator } from './components/OfflineIndicator';
 
 export type NavigationTab =
   | 'dashboard'
@@ -83,22 +80,8 @@ export default function App() {
     request?: DeficitRequest;
   } | null>(null);
 
-  // Tablet & Mobile drawer and PWA installation states
+  // Responsive mobile drawer state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
-  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any | null>(null);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredInstallPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
 
   // Persist requests on change
   useEffect(() => {
@@ -124,6 +107,20 @@ export default function App() {
   const handleSwitchUser = (newUser: User) => {
     setCurrentUserState(newUser);
     setActiveUser(newUser);
+    if (newUser.role === 'solicitante') {
+      const restrictedTabs = [
+        'denf_queue',
+        'followup',
+        'sector_demand',
+        'rankings',
+        'indicators',
+        'reports',
+        'settings',
+      ];
+      if (restrictedTabs.includes(currentTab)) {
+        setCurrentTab('dashboard');
+      }
+    }
   };
 
   // Reset demo data handler
@@ -203,6 +200,15 @@ export default function App() {
     if (detailsRequest?.id === updatedRequest.id) {
       setDetailsRequest(updatedRequest);
     }
+  };
+
+  // Open Closure / Fechamento modal - exclusive to Enfermeiro de Plantão (solicitante)
+  const handleOpenClosure = (req: DeficitRequest) => {
+    if (currentUser.role !== 'solicitante') {
+      return;
+    }
+    setDetailsRequest(null);
+    setClosureRequest(req);
   };
 
   // Open Arrival Confirmation Modal
@@ -339,6 +345,8 @@ export default function App() {
   const openFollowUpsCount = followUps.filter((f) => f.status !== 'concluido').length;
 
   const allUsersList = useMemo(() => getStoredUsers(), []);
+  const canAccessDENF =
+    currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
 
   return (
     <div className="min-h-screen bg-[#F9F7F2] flex flex-col font-sans text-[#2D2D2A] antialiased selection:bg-[#8C9C82] selection:text-white">
@@ -350,21 +358,20 @@ export default function App() {
         onSelectUser={handleSwitchUser}
         alerts={alerts}
         onOpenAlerts={() => {
-          // Open details of first unread or navigate to denf queue
+          // Open details of first unread or navigate to denf queue / requests
           const firstUnread = alerts.find((a) => !a.read);
           if (firstUnread?.requestId) {
             handleNavigateToRequest(firstUnread.requestId);
           } else {
-            setCurrentTab('denf_queue');
+            setCurrentTab(canAccessDENF ? 'denf_queue' : 'requests');
           }
         }}
         onNavigateToRequest={handleNavigateToRequest}
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        onOpenInstallModal={() => setIsInstallModalOpen(true)}
       />
 
       {/* Main Layout Container */}
-      <div className="flex-1 flex w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 gap-6 pb-28 lg:pb-8">
+      <div className="flex-1 flex w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 gap-6 pb-8">
         {/* Left Structural Sidebar */}
         <Sidebar
           currentTab={currentTab}
@@ -382,7 +389,6 @@ export default function App() {
           }}
           isMobileOpen={isMobileMenuOpen}
           onCloseMobile={() => setIsMobileMenuOpen(false)}
-          onOpenInstallModal={() => setIsInstallModalOpen(true)}
         />
 
         {/* Center / Right Content Stage */}
@@ -396,7 +402,7 @@ export default function App() {
               onOpenNewRequest={() => setCurrentTab('new_request')}
               onOpenDetails={setDetailsRequest}
               onOpenDecision={setDecisionRequest}
-              onOpenClosure={setClosureRequest}
+              onOpenClosure={handleOpenClosure}
               onOpenArrivalModal={handleOpenArrivalModal}
             />
           )}
@@ -420,11 +426,12 @@ export default function App() {
               onOpenDetails={setDetailsRequest}
               onOpenDecision={setDecisionRequest}
               onOpenArrivalModal={handleOpenArrivalModal}
+              onOpenClosure={handleOpenClosure}
             />
           )}
 
           {/* TAB 4: FILA DENF DE TRIAGEM */}
-          {currentTab === 'denf_queue' && (
+          {currentTab === 'denf_queue' && canAccessDENF && (
             <DENFQueueView
               requests={requests}
               currentUser={currentUser}
@@ -437,15 +444,17 @@ export default function App() {
           {currentTab === 'relocations' && (
             <RelocationsRealtimeView
               relocations={allRelocations}
+              requests={requests}
               currentUser={currentUser}
               onUpdateStatus={handleUpdateRelocationStatus}
               onNavigateToRequest={handleNavigateToRequest}
               onOpenArrivalModal={handleOpenArrivalModal}
+              onOpenClosure={handleOpenClosure}
             />
           )}
 
           {/* TAB 6: ACOMPANHAMENTO GERENCIAL */}
-          {currentTab === 'followup' && (
+          {currentTab === 'followup' && canAccessDENF && (
             <ManagementFollowUpView
               followUps={followUps}
               currentUser={currentUser}
@@ -455,19 +464,19 @@ export default function App() {
           )}
 
           {/* TAB 7: MAPA DE DEMANDA (ORIGEM -> DESTINO) */}
-          {currentTab === 'sector_demand' && <SectorDemandMapView requests={requests} />}
+          {currentTab === 'sector_demand' && canAccessDENF && <SectorDemandMapView requests={requests} />}
 
           {/* TAB 8: RANKINGS GERENCIAIS */}
-          {currentTab === 'rankings' && <RankingsView requests={requests} />}
+          {currentTab === 'rankings' && canAccessDENF && <RankingsView requests={requests} />}
 
           {/* TAB 9: INDICADORES ESTATÍSTICOS & EFICIÊNCIA */}
-          {currentTab === 'indicators' && <IndicatorsView requests={requests} />}
+          {currentTab === 'indicators' && canAccessDENF && <IndicatorsView requests={requests} />}
 
           {/* TAB 10: RELATÓRIOS & EXPORTAÇÃO */}
-          {currentTab === 'reports' && <ReportsView requests={requests} />}
+          {currentTab === 'reports' && canAccessDENF && <ReportsView requests={requests} />}
 
           {/* TAB 11: CONFIGURAÇÕES & PARAMETRIZAÇÃO */}
-          {currentTab === 'settings' && (
+          {currentTab === 'settings' && canAccessDENF && (
             <SettingsView
               settings={settings}
               currentUser={currentUser}
@@ -493,10 +502,7 @@ export default function App() {
             setDetailsRequest(null);
             setImpactRequest(req);
           }}
-          onOpenClosure={(req) => {
-            setDetailsRequest(null);
-            setClosureRequest(req);
-          }}
+          onOpenClosure={handleOpenClosure}
           onOpenCancel={(req) => {
             setDetailsRequest(null);
             setCancelRequest(req);
@@ -560,25 +566,6 @@ export default function App() {
           onClose={() => setArrivalModalData(null)}
         />
       )}
-
-      {/* TABLET / MOBILE QUICK NAVIGATION BOTTOM BAR */}
-      <TabletBottomBar
-        currentTab={currentTab}
-        onSelectTab={setCurrentTab}
-        onToggleMenu={() => setIsMobileMenuOpen(true)}
-        pendingCount={pendingQueueCount}
-        activeRelocationsCount={activeRelocationsCount}
-      />
-
-      {/* TABLET / STANDALONE PWA INSTALLATION MODAL */}
-      <InstallTabletModal
-        isOpen={isInstallModalOpen}
-        onClose={() => setIsInstallModalOpen(false)}
-        deferredPrompt={deferredInstallPrompt}
-      />
-
-      {/* OFFLINE STATUS INDICATOR FOR TABLET/MOBILE */}
-      <OfflineIndicator />
     </div>
   );
 }

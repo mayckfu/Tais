@@ -16,6 +16,7 @@ import {
   UserCheck,
   AlertCircle,
   FileText,
+  ClipboardList,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -129,6 +130,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const isDENFOrAdmin =
     currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
+  const isEnfermeiroDePlantao = currentUser.role === 'solicitante';
 
   return (
     <div id="dashboard-view" className="space-y-6">
@@ -276,14 +278,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* 4 Main KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* 1. Pendentes DENF */}
+        {/* 1. Pendentes DENF / Parecer */}
         <div
-          onClick={() => onNavigateTab('denf_queue')}
+          onClick={() => onNavigateTab(isEnfermeiroDePlantao ? 'requests' : 'denf_queue')}
           className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-5 cursor-pointer hover:border-[#8C9C82] hover:shadow-sm transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#8E8E80]">
-              Aguardando DENF
+              {isEnfermeiroDePlantao ? 'Aguardando Parecer' : 'Aguardando DENF'}
             </span>
             <div className="w-8 h-8 rounded-xl bg-[#F9F7F2] border border-[#E8E6D9] flex items-center justify-center text-[#5A5A40] shrink-0">
               <Clock className="w-4 h-4" />
@@ -294,7 +296,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-xs text-[#7D7D72] font-medium">solicitações</span>
           </div>
           <div className="mt-3 flex items-center text-xs text-[#5A5A40] font-semibold gap-1">
-            <span>Ver Fila Operacional</span>
+            <span>{isEnfermeiroDePlantao ? 'Ver Minhas Solicitações' : 'Ver Fila Operacional'}</span>
             <ArrowRight className="w-3 h-3" />
           </div>
         </div>
@@ -347,12 +349,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         {/* 4. Coberturas Concluídas */}
         <div
-          onClick={() => onNavigateTab('indicators')}
+          onClick={() => onNavigateTab(isEnfermeiroDePlantao ? 'requests' : 'indicators')}
           className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-5 cursor-pointer hover:border-[#8C9C82] hover:shadow-sm transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#8E8E80]">
-              Solucionadas
+              {isEnfermeiroDePlantao ? 'Demandas Atendidas' : 'Solucionadas'}
             </span>
             <div className="w-8 h-8 rounded-xl bg-[#F9F7F2] border border-[#E8E6D9] flex items-center justify-center text-[#8C9C82] shrink-0">
               <CheckCircle2 className="w-4 h-4" />
@@ -363,7 +365,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-xs text-[#7D7D72] font-medium">demandas atendidas</span>
           </div>
           <div className="mt-3 flex items-center text-xs text-[#5A5A40] font-semibold gap-1">
-            <span>Ver Indicadores</span>
+            <span>{isEnfermeiroDePlantao ? 'Ver Minhas Solicitações' : 'Ver Indicadores'}</span>
             <ArrowRight className="w-3 h-3" />
           </div>
         </div>
@@ -514,7 +516,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         {isAttended ? (
                           <span className="text-[#3E4D36] font-semibold flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3 text-[#5A6D50]" />
-                            Atendimento prestado. Pronto para registro de desfecho pelo plantonista.
+                            {isEnfermeiroDePlantao
+                              ? 'Atendimento prestado. Pronto para registro de desfecho pelo plantonista.'
+                              : 'Atendimento prestado. Fechamento da ocorrência a ser realizado pelo Enfermeiro de Plantão.'}
                           </span>
                         ) : (
                           <span className="text-[#7D7D72]">
@@ -524,13 +528,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2 ml-auto">
-                        {/* Botão de Encerramento / Desfecho se atendida/remanejada */}
-                        {isAttended && req.status !== 'encerrada' && (
+                        {/* Botão de Encerramento / Desfecho: restrito exclusivamente ao Enfermeiro de Plantão */}
+                        {isEnfermeiroDePlantao && isAttended && req.status !== 'encerrada' && (
                           <button
                             id={`btn-closure-card-${req.id}`}
                             onClick={() => (onOpenClosure ? onOpenClosure(req) : onOpenDetails(req))}
                             className="px-3.5 py-1.5 rounded-lg bg-[#4A6344] hover:bg-[#3B5036] text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
-                            title="Registrar desfecho e encerrar o chamado"
+                            title="Registrar desfecho e encerrar o chamado (Exclusivo Enfermeiro de Plantão)"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Registrar Desfecho (Encerrar)</span>
@@ -566,64 +570,108 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Right 1 Col: Acesso Rápido & Diretoria */}
+        {/* Right 1 Col: Acesso Rápido Operacional / Gestão */}
         <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-6 space-y-4 flex flex-col justify-between">
           <div>
             <h3 className="font-serif font-bold text-sm text-[#2D2D2A] border-b border-[#E8E6D9] pb-3">
-              Acesso Rápido Operacional
+              {isEnfermeiroDePlantao ? 'Ações Rápidas do Plantonista' : 'Acesso Rápido Gerencial'}
             </h3>
-            <div className="mt-3 space-y-2 text-xs">
-              <button
-                onClick={() => onNavigateTab('sector_demand')}
-                className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
-              >
-                <div className="flex items-center gap-2.5">
-                  <ArrowRightLeft className="w-4 h-4 text-[#5A5A40]" />
-                  <span>Mapa de Demanda (Origem → Destino)</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
-              </button>
 
-              <button
-                onClick={() => onNavigateTab('rankings')}
-                className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
-              >
-                <div className="flex items-center gap-2.5">
-                  <TrendingUp className="w-4 h-4 text-[#D1A661]" />
-                  <span>Rankings de Absenteísmo Hospitalar</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
-              </button>
+            {isEnfermeiroDePlantao ? (
+              <div className="mt-3 space-y-2 text-xs">
+                <button
+                  id="btn-fast-new-request"
+                  onClick={onOpenNewRequest}
+                  className="w-full text-left p-3 rounded-xl bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold flex items-center justify-between transition-all shadow-xs"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <PlusCircle className="w-4 h-4 text-[#D1A661]" />
+                    <span>Comunicar Novo Déficit</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-white/80" />
+                </button>
 
-              <button
-                onClick={() => onNavigateTab('followup')}
-                className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Building className="w-4 h-4 text-[#8C9C82]" />
-                  <span>Acompanhamento Gerencial</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
-              </button>
+                <button
+                  id="btn-fast-my-requests"
+                  onClick={() => onNavigateTab('requests')}
+                  className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ClipboardList className="w-4 h-4 text-[#8C9C82]" />
+                    <span>Minhas Solicitações do Setor</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
+                </button>
 
-              <button
-                onClick={() => onNavigateTab('reports')}
-                className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Users className="w-4 h-4 text-[#5A5A40]" />
-                  <span>Exportação de Relatórios & Auditoria</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
-              </button>
-            </div>
+                <button
+                  id="btn-fast-relocations"
+                  onClick={() => onNavigateTab('relocations')}
+                  className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ArrowRightLeft className="w-4 h-4 text-[#5A5A40]" />
+                    <span>Remanejamentos & Deslocamento</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-2 text-xs">
+                <button
+                  onClick={() => onNavigateTab('sector_demand')}
+                  className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ArrowRightLeft className="w-4 h-4 text-[#5A5A40]" />
+                    <span>Mapa de Demanda (Origem → Destino)</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
+                </button>
+
+                <button
+                  onClick={() => onNavigateTab('rankings')}
+                  className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <TrendingUp className="w-4 h-4 text-[#D1A661]" />
+                    <span>Rankings de Absenteísmo Hospitalar</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
+                </button>
+
+                <button
+                  onClick={() => onNavigateTab('followup')}
+                  className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Building className="w-4 h-4 text-[#8C9C82]" />
+                    <span>Acompanhamento Gerencial</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
+                </button>
+
+                <button
+                  onClick={() => onNavigateTab('reports')}
+                  className="w-full text-left p-3 rounded-xl bg-[#F9F7F2] hover:bg-[#F0EFEC] border border-[#E8E6D9] font-medium text-[#2D2D2A] flex items-center justify-between transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Users className="w-4 h-4 text-[#5A5A40]" />
+                    <span>Exportação de Relatórios & Auditoria</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-[#8E8E80]" />
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="p-3.5 bg-[#F9F7F2] border border-[#E8E6D9] rounded-xl text-xs text-[#5A5A40] mt-4">
-            <span className="font-bold block text-[#3E3E32]">Protocolo de Comunicação DENF:</span>
+            <span className="font-bold block text-[#3E3E32]">
+              {isEnfermeiroDePlantao ? 'Diretriz do Plantão:' : 'Protocolo de Comunicação DENF:'}
+            </span>
             <p className="text-[11px] text-[#7D7D72] mt-1 leading-relaxed">
-              Notifique ausências com antecedência mínima de 2 horas do início do plantão para
-              otimizar as rotas de remanejamento.
+              {isEnfermeiroDePlantao
+                ? 'Comunique déficits com antecedência e, ao término da assistência, registre o desfecho para encerrar a ocorrência.'
+                : 'Notifique ausências com antecedência mínima de 2 horas do início do plantão para otimizar as rotas de remanejamento.'}
             </p>
           </div>
         </div>

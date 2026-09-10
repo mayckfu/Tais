@@ -22,6 +22,7 @@ interface RequestsListViewProps {
   onOpenDetails: (request: DeficitRequest) => void;
   onOpenDecision?: (request: DeficitRequest) => void;
   onOpenArrivalModal?: (relocation: RelocationMovement, req?: DeficitRequest) => void;
+  onOpenClosure?: (request: DeficitRequest) => void;
   title?: string;
   defaultStatusFilter?: string;
   defaultCriticalityFilter?: string;
@@ -33,6 +34,7 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
   onOpenDetails,
   onOpenDecision,
   onOpenArrivalModal,
+  onOpenClosure,
   title = 'Todas as Solicitações de Déficit',
   defaultStatusFilter = 'all',
   defaultCriticalityFilter = 'all',
@@ -152,6 +154,7 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
 
   const isDENFOrAdmin =
     currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
+  const isEnfermeiroDePlantao = currentUser.role === 'solicitante';
 
   return (
     <div id="requests-list-view" className="space-y-6">
@@ -454,6 +457,26 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
                             Chegada
                           </button>
                         )}
+
+                        {/* Quick Registrar Desfecho (Encerramento) para Enfermeiro de Plantão */}
+                        {isEnfermeiroDePlantao &&
+                          onOpenClosure &&
+                          req.status !== 'encerrada' &&
+                          req.status !== 'cancelada' &&
+                          (req.status === 'remanejamento_em_andamento' ||
+                            req.status === 'remanejamento_autorizado' ||
+                            req.status === 'solucao_interna' ||
+                            (req.relocations && req.relocations.some((r) => r.status === 'em_cobertura'))) && (
+                            <button
+                              id={`btn-closure-${req.id}`}
+                              onClick={() => onOpenClosure(req)}
+                              className="px-2.5 py-1 text-xs font-bold rounded-md bg-[#4A6344] hover:bg-[#3B5036] text-white shadow-xs inline-flex items-center gap-1"
+                              title="Registrar Desfecho e Encerrar Chamado"
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              Desfecho
+                            </button>
+                          )}
 
                         {/* Quick Decision for DENF */}
                         {isDENFOrAdmin &&

@@ -11,8 +11,6 @@ import {
   Flame,
   Info,
   Menu,
-  Tablet,
-  Download,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -23,7 +21,6 @@ interface NavbarProps {
   onOpenAlerts: () => void;
   onNavigateToRequest?: (requestId: string) => void;
   onToggleMobileMenu?: () => void;
-  onOpenInstallModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -33,7 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectUser,
   onOpenAlerts,
   onToggleMobileMenu,
-  onOpenInstallModal,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const unreadAlerts = alerts.filter((a) => !a.read);
@@ -114,21 +110,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Right Controls: Install Tablet, Notifications & Profile Switcher */}
+          {/* Right Controls: Notifications & Profile Switcher */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Install Tablet / App Button */}
-            {onOpenInstallModal && (
-              <button
-                id="btn-open-install-tablet"
-                onClick={onOpenInstallModal}
-                className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-full border border-[#D1A661]/40 bg-[#D1A661]/15 hover:bg-[#D1A661]/25 text-[#7A581E] text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
-                title="Instalar no Tablet / Dispositivo Móvel"
-              >
-                <Tablet className="w-3.5 h-3.5 text-[#D1A661]" />
-                <span className="hidden md:inline">Tablet</span>
-              </button>
-            )}
-
             {/* Notification Bell */}
             <button
               id="btn-open-notifications"
@@ -231,21 +214,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <li>Administrador: configurações, auditoria e usuários</li>
                     </ul>
                   </div>
-
-                  {onOpenInstallModal && (
-                    <div className="p-2 border-t border-[#E8E6D9]">
-                      <button
-                        onClick={() => {
-                          setShowUserMenu(false);
-                          onOpenInstallModal();
-                        }}
-                        className="w-full py-2 px-3 rounded-xl bg-[#D1A661]/15 hover:bg-[#D1A661]/25 text-[#7A581E] font-bold text-xs flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <Tablet className="w-4 h-4 text-[#D1A661]" />
-                        <span>Instalar no Tablet / Dispositivo</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>

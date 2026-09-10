@@ -61,6 +61,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
     currentUser.role === 'coordenador' || currentUser.role === 'denf' || currentUser.role === 'admin';
   const isDENFOrAdmin = isLeadership;
   const isClosedOrCancelled = request.status === 'encerrada' || request.status === 'cancelada';
+  const isEnfermeiroDePlantao = currentUser.role === 'solicitante';
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
@@ -148,14 +149,16 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                 </button>
               )}
 
-              {!isClosedOrCancelled && (
+              {/* Encerramento da ocorrência: Competência exclusiva do Enfermeiro de Plantão */}
+              {!isClosedOrCancelled && isEnfermeiroDePlantao && (
                 <button
                   id="btn-modal-open-closure"
                   onClick={() => onOpenClosure(request)}
                   className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold shadow-xs flex items-center gap-1.5"
+                  title="Registrar desfecho e encerramento de plantão (Exclusivo Enfermeiro de Plantão)"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Encerrar</span>
+                  <span>Encerrar Chamado</span>
                 </button>
               )}
 
@@ -361,14 +364,20 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                                 {rel.confirmedArrivalAt && ` às ${rel.confirmedArrivalAt}`}
                               </span>
                             </span>
-                            {onUpdateRelocationStatus && (
+                            {isEnfermeiroDePlantao ? (
                               <button
                                 type="button"
-                                onClick={() => onUpdateRelocationStatus(rel.id, 'finalizado')}
-                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-white shadow-xs transition-colors"
+                                onClick={() => onOpenClosure(request)}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#4A6344] hover:bg-[#3B5036] text-white shadow-xs flex items-center gap-1.5 transition-colors"
+                                title="Registrar desfecho e encerrar chamado em sincronia (Exclusivo Enfermeiro de Plantão)"
                               >
-                                Finalizar Cobertura
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Registrar Desfecho (Encerrar)</span>
                               </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                                Fechamento pelo Enfermeiro de Plantão
+                              </span>
                             )}
                           </div>
                         )}
@@ -666,14 +675,20 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                                 {rel.confirmedArrivalAt && ` às ${rel.confirmedArrivalAt}`}
                               </span>
                             </span>
-                            {onUpdateRelocationStatus && (
+                            {isEnfermeiroDePlantao ? (
                               <button
                                 type="button"
-                                onClick={() => onUpdateRelocationStatus(rel.id, 'finalizado')}
-                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-white shadow-xs transition-colors"
+                                onClick={() => onOpenClosure(request)}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#4A6344] hover:bg-[#3B5036] text-white shadow-xs flex items-center gap-1.5 transition-colors"
+                                title="Registrar desfecho e encerrar chamado em sincronia (Exclusivo Enfermeiro de Plantão)"
                               >
-                                Finalizar Cobertura
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Registrar Desfecho (Encerrar)</span>
                               </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 font-medium bg-slate-100 px-2 py-1 rounded border border-slate-200">
+                                Fechamento pelo Enfermeiro de Plantão
+                              </span>
                             )}
                           </div>
                         )}

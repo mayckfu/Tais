@@ -50,7 +50,11 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
   );
   const [followUpNotes, setFollowUpNotes] = useState<string>('');
 
+  const isEnfermeiroDePlantao = currentUser.role === 'solicitante';
+
   const handleSave = () => {
+    if (!isEnfermeiroDePlantao) return;
+
     const today = new Date().toISOString().split('T')[0];
     const nowTime = new Date().toTimeString().slice(0, 5);
 
@@ -75,12 +79,20 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
       };
     }
 
+    // Sincroniza e finaliza todos os remanejamentos ativos vinculados
+    const synchronizedRelocations = (request.relocations || []).map((rel) => ({
+      ...rel,
+      status: (rel.status === 'cancelado' ? 'cancelado' : 'finalizado') as any,
+      endTime: rel.endTime || nowTime,
+    }));
+
     const updated: DeficitRequest = {
       ...request,
       status: 'encerrada',
       needsManagementFollowUp: needsFollowUp,
       managementFollowUpId: followUpCreated ? followUpCreated.id : undefined,
       updatedAt: new Date().toISOString(),
+      relocations: synchronizedRelocations,
       closure: {
         resolutionType,
         closedAt: `${today} ${nowTime}`,
@@ -99,8 +111,8 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
         {
           id: `tl-close-${Date.now()}`,
           timestamp: nowTime,
-          title: `Ocorrência Encerrada: ${resolutionType.replace('_', ' ').toUpperCase()}`,
-          description: `Desfecho registrado por ${currentUser.name}. Tempo total de resolução: ${resolutionMinutes} min. Efetividade: ${effectiveness}.`,
+          title: `Ocorrência e Remanejamentos Encerrados: ${resolutionType.replace('_', ' ').toUpperCase()}`,
+          description: `Desfecho registrado pelo Enfermeiro de Plantão (${currentUser.name}). Todos os remanejamentos ativos foram sincronizados e finalizados. Tempo de resolução: ${resolutionMinutes} min. Efetividade: ${effectiveness}.`,
           user: currentUser.name,
           userRole: currentUser.roleTitle,
           type: 'closure',
@@ -113,7 +125,7 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
           requestId: request.id,
           protocol: request.protocol,
           user: currentUser.name,
-          action: 'Encerramento Formal da Ocorrência',
+          action: 'Encerramento Formal da Ocorrência e Sincronização de Remanejamentos',
           fieldAffected: 'status',
           oldValue: request.status,
           newValue: 'encerrada',
@@ -144,6 +156,33 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
         </div>
 
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+          {/* Banner de Sincronização e Perfil Exclusivo */}
+          {isEnfermeiroDePlantao ? (
+            <div className="p-3.5 bg-[#5A6D50]/10 border border-[#5A6D50]/30 rounded-2xl flex items-start gap-3 text-xs text-[#2D2D2A]">
+              <ShieldCheck className="w-5 h-5 text-[#4A6344] shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block text-[#243320]">
+                  Competência Exclusiva: Enfermeiro de Plantão ({currentUser.name})
+                </span>
+                <p className="text-[11px] text-[#4A6344] mt-0.5 leading-relaxed">
+                  O registro de desfecho finaliza a ocorrência e sincroniza em definitivo o status de todos os profissionais remanejados vinculados, sem necessidade de finalizações manuais avulsas.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-xs text-amber-900">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold block text-amber-950">
+                  Acesso Restrito ao Enfermeiro de Plantão
+                </span>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  O fechamento formal e registro de desfecho de plantão é atribuído privativamente ao Enfermeiro de Plantão do setor solicitante. Coordenação e Diretoria acompanham pelo módulo gerencial.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Resolution Type */}
           <div>
             <label className="block font-bold text-[#2D2D2A] mb-1">Tipo de Desfecho Final *</label>
@@ -281,10 +320,17 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
             Cancelar
           </button>
           <button
+            id="btn-confirm-closure"
+            disabled={!isEnfermeiroDePlantao}
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold shadow-xs transition-colors"
+            className={`px-5 py-2 rounded-xl font-bold shadow-xs transition-colors flex items-center gap-1.5 ${
+              isEnfermeiroDePlantao
+                ? 'bg-[#5A5A40] hover:bg-[#4A4A35] text-white cursor-pointer'
+                : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+            }`}
           >
-            Concluir & Encerrar Ocorrência
+            <CheckCircle2 className="w-4 h-4" />
+            <span>Concluir & Encerrar Ocorrência</span>
           </button>
         </div>
       </div>

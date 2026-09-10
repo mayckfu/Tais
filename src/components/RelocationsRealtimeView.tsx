@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RelocationMovement, RelocationStatus, User } from '../types';
+import { RelocationMovement, RelocationStatus, User, DeficitRequest } from '../types';
 import { RelocationStatusBadge } from './StatusBadge';
 import {
   ArrowRightLeft,
@@ -15,6 +15,7 @@ import {
 
 interface RelocationsRealtimeViewProps {
   relocations: RelocationMovement[];
+  requests?: DeficitRequest[];
   currentUser: User;
   onUpdateStatus: (
     relocationId: string,
@@ -23,16 +24,21 @@ interface RelocationsRealtimeViewProps {
   ) => void;
   onNavigateToRequest: (reqId: string) => void;
   onOpenArrivalModal?: (relocation: RelocationMovement) => void;
+  onOpenClosure?: (request: DeficitRequest) => void;
 }
 
 export const RelocationsRealtimeView: React.FC<RelocationsRealtimeViewProps> = ({
   relocations,
+  requests = [],
   currentUser,
   onUpdateStatus,
   onNavigateToRequest,
   onOpenArrivalModal,
+  onOpenClosure,
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('active');
+
+  const isEnfermeiroDePlantao = currentUser.role === 'solicitante';
 
   const filtered = relocations.filter((rel) => {
     if (filterStatus === 'active') {
@@ -263,7 +269,7 @@ export const RelocationsRealtimeView: React.FC<RelocationsRealtimeViewProps> = (
                   )}
 
                   {rel.status === 'em_cobertura' && (
-                    <div className="p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
+                    <div className="p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div>
                         <span className="font-bold text-emerald-950 block">Ativo em Cobertura</span>
                         <span className="text-[10px] text-emerald-700 block">
@@ -271,12 +277,28 @@ export const RelocationsRealtimeView: React.FC<RelocationsRealtimeViewProps> = (
                           {rel.confirmedArrivalAt && `às ${rel.confirmedArrivalAt}`}
                         </span>
                       </div>
-                      <button
-                        onClick={() => onUpdateStatus(rel.id, 'finalizado')}
-                        className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 text-white hover:bg-slate-700 shadow-xs"
-                      >
-                        Finalizar
-                      </button>
+                      {isEnfermeiroDePlantao ? (
+                        <button
+                          id={`btn-closure-rel-${rel.id}`}
+                          onClick={() => {
+                            const matchedReq = requests.find((r) => r.id === rel.requestId);
+                            if (matchedReq && onOpenClosure) {
+                              onOpenClosure(matchedReq);
+                            } else {
+                              onNavigateToRequest(rel.requestId);
+                            }
+                          }}
+                          className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-[#4A6344] hover:bg-[#3B5036] text-white shadow-xs flex items-center gap-1.5 transition-all"
+                          title="Registrar desfecho e encerrar chamado em sincronia (Exclusivo Enfermeiro de Plantão)"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Registrar Desfecho (Encerrar)</span>
+                        </button>
+                      ) : (
+                        <span className="text-[11px] font-medium text-[#5A6D50] bg-white px-2.5 py-1 rounded-md border border-[#8C9C82]/30">
+                          Fechamento pelo Plantão
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

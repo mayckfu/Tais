@@ -13,7 +13,6 @@ import {
   FileSpreadsheet,
   Settings,
   X,
-  Tablet,
   CheckCircle2,
 } from 'lucide-react';
 
@@ -47,7 +46,6 @@ interface SidebarProps {
   };
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
-  onOpenInstallModal?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -61,7 +59,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   counts,
   isMobileOpen = false,
   onCloseMobile,
-  onOpenInstallModal,
 }) => {
   const role = currentUser?.role || propUserRole || 'solicitante';
   const canAccessDENF = role === 'denf' || role === 'admin' || role === 'coordenador';
@@ -95,13 +92,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white text-[#2D2D2A]">
-      {/* Mobile/Tablet Drawer Header (Only visible in mobile overlay) */}
+      {/* Drawer Header (Mobile/Tablet overlay) */}
       <div className="lg:hidden p-4 bg-[#5A5A40] text-white flex items-center justify-between border-b border-[#4A4A35]">
         <div className="flex items-center gap-2">
           <span className="font-serif font-bold text-base">Menu do Sistema</span>
-          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-white/20">
-            Tablet & Mobile
-          </span>
         </div>
         {onCloseMobile && (
           <button
@@ -160,30 +154,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <div className="flex items-center gap-3">
             <ClipboardList className={`w-4 h-4 shrink-0 ${isTabActive('requests') ? 'text-white' : 'text-[#8C9C82]'}`} />
-            <span>Solicitações</span>
+            <span>{role === 'solicitante' ? 'Minhas Solicitações' : 'Solicitações'}</span>
           </div>
         </button>
 
-        {/* DENF / DIRETORIA QUEUE */}
-        <button
-          id="nav-tab-pendentes-analise"
-          onClick={() => handleItemClick('denf_queue')}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
-            isTabActive('denf_queue')
-              ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
-              : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <Clock className={`w-4 h-4 shrink-0 ${isTabActive('denf_queue') ? 'text-white' : 'text-[#D1A661]'}`} />
-            <span>Fila Central DENF</span>
-          </div>
-          {pendingCount > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D1A661] text-[#2D2D2A]">
-              {pendingCount}
-            </span>
-          )}
-        </button>
+        {/* DENF / DIRETORIA QUEUE (Exclusivo Coordenação e DENF) */}
+        {canAccessDENF && (
+          <button
+            id="nav-tab-pendentes-analise"
+            onClick={() => handleItemClick('denf_queue')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
+              isTabActive('denf_queue')
+                ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
+                : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Clock className={`w-4 h-4 shrink-0 ${isTabActive('denf_queue') ? 'text-white' : 'text-[#D1A661]'}`} />
+              <span>Fila Central DENF</span>
+            </div>
+            {pendingCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D1A661] text-[#2D2D2A]">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+        )}
 
         <button
           id="nav-tab-remanejamentos"
@@ -205,82 +201,86 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </button>
 
-        {/* GESTÃO & CONTROLE ASSISTENCIAL */}
-        <div className="px-3 pb-1 pt-3 text-[10px] font-bold tracking-widest text-[#8C9C82] uppercase">
-          Controle Assistencial
-        </div>
+        {/* GESTÃO & CONTROLE ASSISTENCIAL (Exclusivo Coordenação, DENF e Admin) */}
+        {canAccessDENF && (
+          <>
+            <div className="px-3 pb-1 pt-3 text-[10px] font-bold tracking-widest text-[#8C9C82] uppercase">
+              Controle Assistencial
+            </div>
 
-        <button
-          id="nav-tab-acompanhamento-gerencial"
-          onClick={() => handleItemClick('followup')}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
-            isTabActive('followup')
-              ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
-              : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <FolderSync className={`w-4 h-4 shrink-0 ${isTabActive('followup') ? 'text-white' : 'text-[#8C9C82]'}`} />
-            <span>Acompanhamento Gerencial</span>
-          </div>
-          {followUps > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#9E5A4E] text-white">
-              {followUps}
-            </span>
-          )}
-        </button>
+            <button
+              id="nav-tab-acompanhamento-gerencial"
+              onClick={() => handleItemClick('followup')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
+                isTabActive('followup')
+                  ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
+                  : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <FolderSync className={`w-4 h-4 shrink-0 ${isTabActive('followup') ? 'text-white' : 'text-[#8C9C82]'}`} />
+                <span>Acompanhamento Gerencial</span>
+              </div>
+              {followUps > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#9E5A4E] text-white">
+                  {followUps}
+                </span>
+              )}
+            </button>
 
-        <button
-          id="nav-tab-mapa-demanda"
-          onClick={() => handleItemClick('sector_demand')}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
-            isTabActive('sector_demand')
-              ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
-              : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
-          }`}
-        >
-          <Network className={`w-4 h-4 shrink-0 ${isTabActive('sector_demand') ? 'text-white' : 'text-[#8C9C82]'}`} />
-          <span>Mapa de Demanda</span>
-        </button>
+            <button
+              id="nav-tab-mapa-demanda"
+              onClick={() => handleItemClick('sector_demand')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
+                isTabActive('sector_demand')
+                  ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
+                  : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
+              }`}
+            >
+              <Network className={`w-4 h-4 shrink-0 ${isTabActive('sector_demand') ? 'text-white' : 'text-[#8C9C82]'}`} />
+              <span>Mapa de Demanda</span>
+            </button>
 
-        <button
-          id="nav-tab-rankings"
-          onClick={() => handleItemClick('rankings')}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
-            isTabActive('rankings')
-              ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
-              : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
-          }`}
-        >
-          <Trophy className={`w-4 h-4 shrink-0 ${isTabActive('rankings') ? 'text-white' : 'text-[#D1A661]'}`} />
-          <span>Rankings de Ausências</span>
-        </button>
+            <button
+              id="nav-tab-rankings"
+              onClick={() => handleItemClick('rankings')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
+                isTabActive('rankings')
+                  ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
+                  : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
+              }`}
+            >
+              <Trophy className={`w-4 h-4 shrink-0 ${isTabActive('rankings') ? 'text-white' : 'text-[#D1A661]'}`} />
+              <span>Rankings de Ausências</span>
+            </button>
 
-        <button
-          id="nav-tab-indicadores"
-          onClick={() => handleItemClick('indicators')}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
-            isTabActive('indicators')
-              ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
-              : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
-          }`}
-        >
-          <BarChart3 className={`w-4 h-4 shrink-0 ${isTabActive('indicators') ? 'text-white' : 'text-[#8C9C82]'}`} />
-          <span>Indicadores & Eficiência</span>
-        </button>
+            <button
+              id="nav-tab-indicadores"
+              onClick={() => handleItemClick('indicators')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
+                isTabActive('indicators')
+                  ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
+                  : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
+              }`}
+            >
+              <BarChart3 className={`w-4 h-4 shrink-0 ${isTabActive('indicators') ? 'text-white' : 'text-[#8C9C82]'}`} />
+              <span>Indicadores & Eficiência</span>
+            </button>
 
-        <button
-          id="nav-tab-relatorios"
-          onClick={() => handleItemClick('reports')}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
-            isTabActive('reports')
-              ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
-              : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
-          }`}
-        >
-          <FileSpreadsheet className={`w-4 h-4 shrink-0 ${isTabActive('reports') ? 'text-white' : 'text-[#8C9C82]'}`} />
-          <span>Relatórios & Fechamento</span>
-        </button>
+            <button
+              id="nav-tab-relatorios"
+              onClick={() => handleItemClick('reports')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
+                isTabActive('reports')
+                  ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
+                  : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
+              }`}
+            >
+              <FileSpreadsheet className={`w-4 h-4 shrink-0 ${isTabActive('reports') ? 'text-white' : 'text-[#8C9C82]'}`} />
+              <span>Relatórios & Fechamento</span>
+            </button>
+          </>
+        )}
 
         {/* GESTÃO & GOVERNANÇA */}
         {(canAccessDENF || canAccessAdmin) && (
@@ -303,29 +303,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </>
         )}
-
-        {/* Tablet PWA Install Trigger */}
-        {onOpenInstallModal && (
-          <div className="pt-3">
-            <button
-              onClick={() => {
-                if (onCloseMobile) onCloseMobile();
-                onOpenInstallModal();
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-[#D1A661]/40 bg-[#D1A661]/15 hover:bg-[#D1A661]/25 text-[#7A581E] font-bold text-xs transition-colors"
-            >
-              <Tablet className="w-4 h-4 text-[#D1A661] shrink-0" />
-              <span>Instalar no Tablet / App</span>
-            </button>
-          </div>
-        )}
       </nav>
 
       {/* Footer System Info */}
       <div className="p-3.5 border-t border-[#E8E6D9] text-[11px] text-[#7D7D72] flex flex-col gap-1 bg-[#F9F7F2]/60">
         <div className="flex items-center justify-between">
           <span className="font-medium text-[#2D2D2A]">DENF Central v2.4</span>
-          <span className="text-[#8C9C82] font-mono text-[10px] font-bold">TABLET READY</span>
         </div>
         <div className="text-[10px] text-[#8E8E80]">
           Padrão Assistencial Seguro
