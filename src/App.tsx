@@ -6,6 +6,7 @@ import {
   ManagementFollowUp,
   SystemAlert,
   RelocationStatus,
+  RelocationMovement,
 } from './types';
 import {
   getStoredRequests,
@@ -43,6 +44,7 @@ import { DecisionModal } from './components/DecisionModal';
 import { ImpactModal } from './components/ImpactModal';
 import { ClosureModal } from './components/ClosureModal';
 import { CancelModal } from './components/CancelModal';
+import { ArrivalConfirmationModal } from './components/ArrivalConfirmationModal';
 import { TabletBottomBar } from './components/TabletBottomBar';
 import { InstallTabletModal } from './components/InstallTabletModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
@@ -76,6 +78,10 @@ export default function App() {
   const [impactRequest, setImpactRequest] = useState<DeficitRequest | null>(null);
   const [closureRequest, setClosureRequest] = useState<DeficitRequest | null>(null);
   const [cancelRequest, setCancelRequest] = useState<DeficitRequest | null>(null);
+  const [arrivalModalData, setArrivalModalData] = useState<{
+    relocation: RelocationMovement;
+    request?: DeficitRequest;
+  } | null>(null);
 
   // Tablet & Mobile drawer and PWA installation states
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -199,12 +205,22 @@ export default function App() {
     }
   };
 
+  // Open Arrival Confirmation Modal
+  const handleOpenArrivalModal = (relocation: RelocationMovement, request?: DeficitRequest) => {
+    const matchedReq =
+      request || requests.find((r) => r.relocations.some((rel) => rel.id === relocation.id));
+    setArrivalModalData({ relocation, request: matchedReq });
+  };
+
   // Update relocation movement status in real-time
   const handleUpdateRelocationStatus = (
     relocationId: string,
     newStatus: RelocationStatus,
     notes?: string
   ) => {
+    const nowTime = new Date().toTimeString().slice(0, 5);
+    const isArrival = newStatus === 'em_cobertura';
+
     setRequests((prev) =>
       prev.map((req) => {
         const found = req.relocations.some((rel) => rel.id === relocationId);
@@ -215,12 +231,17 @@ export default function App() {
           return {
             ...rel,
             status: newStatus,
+            startTime: rel.startTime || nowTime,
+            ...(isArrival && {
+              confirmedArrivalBy: currentUser.name,
+              confirmedArrivalRole: `${currentUser.roleTitle} (${currentUser.sector})`,
+              confirmedArrivalAt: nowTime,
+            }),
             notes: notes || rel.notes,
           };
         });
 
         // Add timeline event
-        const nowTime = new Date().toTimeString().slice(0, 5);
         const statusLabels: Record<RelocationStatus, string> = {
           aguardando_inicio: 'Aguardando Início',
           em_deslocamento: 'Em Deslocamento',
@@ -228,6 +249,14 @@ export default function App() {
           finalizado: 'Remanejamento Finalizado',
           cancelado: 'Remanejamento Cancelado',
         };
+
+        const timelineTitle = isArrival
+          ? 'Chegada Confirmada no Setor: Início de Cobertura'
+          : `Status do Remanejamento: ${statusLabels[newStatus]}`;
+
+        const timelineDesc = isArrival
+          ? `Apresentação e chegada confirmadas no posto por ${currentUser.name} (${currentUser.roleTitle} - ${currentUser.sector}). O profissional iniciou a assistência imediata.${notes ? ` Obs: ${notes}` : ''}`
+          : `Atualizado por ${currentUser.name} (${currentUser.roleTitle}).${notes ? ` Notas: ${notes}` : ''}`;
 
         return {
           ...req,
@@ -237,8 +266,8 @@ export default function App() {
             {
               id: `tl-rel-stat-${Date.now()}`,
               timestamp: nowTime,
-              title: `Status do Remanejamento: ${statusLabels[newStatus]}`,
-              description: `Atualizado por ${currentUser.name} (${currentUser.roleTitle}).`,
+              title: timelineTitle,
+              description: timelineDesc,
               user: currentUser.name,
               userRole: currentUser.roleTitle,
               type: 'relocation',
@@ -247,6 +276,30 @@ export default function App() {
         };
       })
     );
+
+    setDetailsRequest((prev) => {
+      if (!prev) return null;
+      const found = prev.relocations.some((rel) => rel.id === relocationId);
+      if (!found) return prev;
+      return {
+        ...prev,
+        relocations: prev.relocations.map((rel) =>
+          rel.id === relocationId
+            ? {
+                ...rel,
+                status: newStatus,
+                startTime: rel.startTime || nowTime,
+                ...(isArrival && {
+                  confirmedArrivalBy: currentUser.name,
+                  confirmedArrivalRole: `${currentUser.roleTitle} (${currentUser.sector})`,
+                  confirmedArrivalAt: nowTime,
+                }),
+                notes: notes || rel.notes,
+              }
+            : rel
+        ),
+      };
+    });
   };
 
   // Update management follow-up
@@ -344,6 +397,7 @@ export default function App() {
               onOpenDetails={setDetailsRequest}
               onOpenDecision={setDecisionRequest}
               onOpenClosure={setClosureRequest}
+              onOpenArrivalModal={handleOpenArrivalModal}
             />
           )}
 
@@ -365,6 +419,7 @@ export default function App() {
               currentUser={currentUser}
               onOpenDetails={setDetailsRequest}
               onOpenDecision={setDecisionRequest}
+              onOpenArrivalModal={handleOpenArrivalModal}
             />
           )}
 
@@ -385,6 +440,7 @@ export default function App() {
               currentUser={currentUser}
               onUpdateStatus={handleUpdateRelocationStatus}
               onNavigateToRequest={handleNavigateToRequest}
+              onOpenArrivalModal={handleOpenArrivalModal}
             />
           )}
 
@@ -445,6 +501,8 @@ export default function App() {
             setDetailsRequest(null);
             setCancelRequest(req);
           }}
+          onUpdateRelocationStatus={handleUpdateRelocationStatus}
+          onOpenArrivalModal={handleOpenArrivalModal}
         />
       )}
 
@@ -486,6 +544,20 @@ export default function App() {
           currentUser={currentUser}
           onConfirmCancel={handleConfirmCancel}
           onClose={() => setCancelRequest(null)}
+        />
+      )}
+
+      {/* MODAL 6: ARRIVAL CONFIRMATION MODAL */}
+      {arrivalModalData && (
+        <ArrivalConfirmationModal
+          relocation={arrivalModalData.relocation}
+          request={arrivalModalData.request}
+          currentUser={currentUser}
+          onConfirmArrival={(relId, _time, notes) => {
+            handleUpdateRelocationStatus(relId, 'em_cobertura', notes);
+            setArrivalModalData(null);
+          }}
+          onClose={() => setArrivalModalData(null)}
         />
       )}
 

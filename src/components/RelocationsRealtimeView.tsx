@@ -22,6 +22,7 @@ interface RelocationsRealtimeViewProps {
     notes?: string
   ) => void;
   onNavigateToRequest: (reqId: string) => void;
+  onOpenArrivalModal?: (relocation: RelocationMovement) => void;
 }
 
 export const RelocationsRealtimeView: React.FC<RelocationsRealtimeViewProps> = ({
@@ -29,6 +30,7 @@ export const RelocationsRealtimeView: React.FC<RelocationsRealtimeViewProps> = (
   currentUser,
   onUpdateStatus,
   onNavigateToRequest,
+  onOpenArrivalModal,
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('active');
 
@@ -196,47 +198,86 @@ export const RelocationsRealtimeView: React.FC<RelocationsRealtimeViewProps> = (
                 </div>
 
                 {/* Real-time Status Actions */}
-                <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2 justify-between">
-                  <button
-                    onClick={() => onNavigateToRequest(rel.requestId)}
-                    className="text-[11px] text-slate-500 hover:text-slate-800 underline font-medium"
-                  >
-                    Ver Ocorrência
-                  </button>
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => onNavigateToRequest(rel.requestId)}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 underline font-medium"
+                    >
+                      Ver Ocorrência Completa
+                    </button>
+                    {rel.status === 'finalizado' && (
+                      <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Remanejamento Concluído
+                      </span>
+                    )}
+                  </div>
 
-                  {/* Transitions */}
                   {rel.status === 'aguardando_inicio' && (
                     <button
                       onClick={() => onUpdateStatus(rel.id, 'em_deslocamento')}
-                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-blue-600 text-white hover:bg-blue-500 shadow-xs"
+                      className="w-full py-1.5 px-3 text-xs font-bold rounded-lg bg-blue-600 text-white hover:bg-blue-500 shadow-xs flex items-center justify-center gap-1.5"
                     >
-                      Marcar Em Deslocamento
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>Liberar no Setor de Origem (Iniciar Deslocamento)</span>
                     </button>
                   )}
 
                   {rel.status === 'em_deslocamento' && (
-                    <button
-                      onClick={() => onUpdateStatus(rel.id, 'em_cobertura')}
-                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-600 text-white hover:bg-emerald-500 shadow-xs"
-                    >
-                      Confirmar Início de Cobertura
-                    </button>
+                    <div className="p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-blue-950 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                          A caminho do setor: {rel.destinationSector}
+                        </span>
+                        <span className="text-[10px] text-blue-800 font-semibold">
+                          {currentUser.sector.toLowerCase() === rel.destinationSector.toLowerCase()
+                            ? 'Seu Setor'
+                            : 'Setor Receptor'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-tight">
+                        {currentUser.sector.toLowerCase() === rel.destinationSector.toLowerCase() ||
+                        currentUser.role === 'solicitante'
+                          ? 'Profissional a caminho. Confirme a chegada assim que ele se apresentar no posto de enfermagem.'
+                          : `Despachado pela DENF. Confirmação preferencial pelo Enfermeiro de Plantão da ${rel.destinationSector}.`}
+                      </p>
+                      <button
+                        onClick={() =>
+                          onOpenArrivalModal
+                            ? onOpenArrivalModal(rel)
+                            : onUpdateStatus(rel.id, 'em_cobertura')
+                        }
+                        className="w-full py-2 px-3 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <UserCheck className="w-4 h-4" />
+                        <span>
+                          {currentUser.sector.toLowerCase() === rel.destinationSector.toLowerCase() ||
+                          currentUser.role === 'solicitante'
+                            ? 'Confirmar Chegada no Setor (Iniciar Cobertura)'
+                            : 'Confirmar Chegada (Supervisão DENF / Coordenação)'}
+                        </span>
+                      </button>
+                    </div>
                   )}
 
                   {rel.status === 'em_cobertura' && (
-                    <button
-                      onClick={() => onUpdateStatus(rel.id, 'finalizado')}
-                      className="px-2.5 py-1 text-xs font-bold rounded-md bg-slate-800 text-white hover:bg-slate-700 shadow-xs"
-                    >
-                      Finalizar Remanejamento
-                    </button>
-                  )}
-
-                  {rel.status === 'finalizado' && (
-                    <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      Remanejamento Concluído
-                    </span>
+                    <div className="p-2.5 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-bold text-emerald-950 block">Ativo em Cobertura</span>
+                        <span className="text-[10px] text-emerald-700 block">
+                          Recepcionado por: {rel.confirmedArrivalBy || 'Enfermeiro de Plantão'}{' '}
+                          {rel.confirmedArrivalAt && `às ${rel.confirmedArrivalAt}`}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => onUpdateStatus(rel.id, 'finalizado')}
+                        className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 text-white hover:bg-slate-700 shadow-xs"
+                      >
+                        Finalizar
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

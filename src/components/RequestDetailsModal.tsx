@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DeficitRequest, User, SystemSettings } from '../types';
+import { DeficitRequest, User, SystemSettings, RelocationStatus, RelocationMovement } from '../types';
 import { RequestStatusBadge, CriticalityBadge, ClassificationBadge, RelocationStatusBadge } from './StatusBadge';
 import { PriorityScoreBadge } from './PriorityBadge';
 import {
@@ -29,6 +29,8 @@ interface RequestDetailsModalProps {
   onOpenImpact: (req: DeficitRequest) => void;
   onOpenClosure: (req: DeficitRequest) => void;
   onOpenCancel: (req: DeficitRequest) => void;
+  onUpdateRelocationStatus?: (relocationId: string, newStatus: RelocationStatus) => void;
+  onOpenArrivalModal?: (relocation: RelocationMovement, req?: DeficitRequest) => void;
 }
 
 export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
@@ -40,6 +42,8 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
   onOpenImpact,
   onOpenClosure,
   onOpenCancel,
+  onUpdateRelocationStatus,
+  onOpenArrivalModal,
 }) => {
   const [activeTab, setActiveTab] = useState<
     | 'resumo'
@@ -279,28 +283,110 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
 
               {/* Quick Status of Relocations */}
               {request.relocations.length > 0 && (
-                <div className="p-4 bg-purple-50/60 border border-purple-200 rounded-xl space-y-2">
+                <div className="p-4 bg-purple-50/60 border border-purple-200 rounded-xl space-y-3">
                   <h4 className="font-extrabold text-purple-950 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                     <ArrowRightLeft className="w-4 h-4 text-purple-700" />
-                    Remanejamento em Execução
+                    Remanejamento em Execução ({request.relocations.length})
                   </h4>
-                  {request.relocations.map((rel) => (
-                    <div
-                      key={rel.id}
-                      className="p-3 bg-white rounded-lg border border-purple-200 flex items-center justify-between text-xs"
-                    >
-                      <div>
-                        <span className="font-bold text-slate-800">
-                          {rel.originSector} → {rel.destinationSector}
-                        </span>
-                        <span className="text-[11px] text-slate-500 block">
-                          {rel.quantityDispatched}x {rel.professionalCategory}{' '}
-                          {rel.professionalName && `(${rel.professionalName})`}
-                        </span>
+                  {request.relocations.map((rel) => {
+                    const isDestNurse =
+                      currentUser.sector.toLowerCase() === rel.destinationSector.toLowerCase() ||
+                      currentUser.role === 'solicitante' ||
+                      request.solicitorUserId === currentUser.id;
+
+                    return (
+                      <div
+                        key={rel.id}
+                        className="p-3.5 bg-white rounded-xl border border-purple-200 space-y-2.5 text-xs shadow-xs"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <span className="font-bold text-slate-800 text-sm">
+                              {rel.originSector} → {rel.destinationSector}
+                            </span>
+                            <span className="text-[11px] text-slate-500 block">
+                              {rel.quantityDispatched}x {rel.professionalCategory}{' '}
+                              {rel.professionalName && `— ${rel.professionalName}`}
+                            </span>
+                          </div>
+                          <RelocationStatusBadge status={rel.status} />
+                        </div>
+
+                        {/* In Transit status banner & action */}
+                        {rel.status === 'em_deslocamento' && (
+                          <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-blue-950 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                                A caminho do posto: {rel.destinationSector}
+                              </span>
+                              <span className="text-[10px] text-blue-700 font-medium">
+                                Despachado por: {rel.authorizedBy} ({rel.authorizedAt})
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-slate-600 leading-tight">
+                              {isDestNurse
+                                ? `Você está alocado(a) no setor ${rel.destinationSector}. Por favor, confirme a apresentação do profissional assim que ele chegar ao posto de enfermagem.`
+                                : `O profissional foi despachado. A confirmação de chegada cabe preferencialmente ao Enfermeiro de Plantão da ${rel.destinationSector}.`}
+                            </p>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onOpenArrivalModal) {
+                                  onOpenArrivalModal(rel, request);
+                                } else if (onUpdateRelocationStatus) {
+                                  onUpdateRelocationStatus(rel.id, 'em_cobertura');
+                                }
+                              }}
+                              className="w-full sm:w-auto px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs flex items-center justify-center gap-1.5 transition-all"
+                            >
+                              <UserCheck className="w-4 h-4" />
+                              <span>
+                                {isDestNurse
+                                  ? 'Confirmar Chegada no Setor (Iniciar Cobertura)'
+                                  : 'Confirmar Chegada (Supervisão DENF / Coordenação)'}
+                              </span>
+                            </button>
+                          </div>
+                        )}
+
+                        {rel.status === 'em_cobertura' && (
+                          <div className="p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                            <span className="text-emerald-900 font-semibold flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>
+                                Chegada confirmada por {rel.confirmedArrivalBy || 'Enfermeiro de Plantão'}
+                                {rel.confirmedArrivalAt && ` às ${rel.confirmedArrivalAt}`}
+                              </span>
+                            </span>
+                            {onUpdateRelocationStatus && (
+                              <button
+                                type="button"
+                                onClick={() => onUpdateRelocationStatus(rel.id, 'finalizado')}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-white shadow-xs transition-colors"
+                              >
+                                Finalizar Cobertura
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {rel.status === 'aguardando_inicio' && onUpdateRelocationStatus && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => onUpdateRelocationStatus(rel.id, 'em_deslocamento')}
+                              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-colors"
+                            >
+                              Liberar e Iniciar Deslocamento
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <RelocationStatusBadge status={rel.status} />
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -480,39 +566,132 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                 {request.relocations.length === 0 ? (
                   <p className="text-slate-400 italic">Nenhuma movimentação gerada ainda.</p>
                 ) : (
-                  request.relocations.map((rel) => (
-                    <div
-                      key={rel.id}
-                      className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-2"
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-mono font-bold text-slate-900">{rel.protocol}</span>
-                        <RelocationStatusBadge status={rel.status} />
+                  request.relocations.map((rel) => {
+                    const isDestNurse =
+                      currentUser.sector.toLowerCase() === rel.destinationSector.toLowerCase() ||
+                      currentUser.role === 'solicitante' ||
+                      request.solicitorUserId === currentUser.id;
+
+                    return (
+                      <div
+                        key={rel.id}
+                        className="p-4 bg-white border border-slate-200 rounded-xl shadow-xs space-y-3 text-xs"
+                      >
+                        <div className="flex justify-between items-center flex-wrap gap-2">
+                          <div>
+                            <span className="font-mono font-bold text-slate-900 text-sm block">
+                              {rel.protocol}
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              {rel.professionalName ? (
+                                <strong className="text-slate-800">{rel.professionalName}</strong>
+                              ) : (
+                                'Profissional Designado'
+                              )}{' '}
+                              ({rel.professionalCategory})
+                            </span>
+                          </div>
+                          <RelocationStatusBadge status={rel.status} />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Origem:</span>
+                            <span className="font-bold text-slate-800">{rel.originSector}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Destino:</span>
+                            <span className="font-bold text-teal-700">{rel.destinationSector}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Qtd Despachada:</span>
+                            <span className="font-bold text-slate-800">
+                              {rel.quantityDispatched} profissional
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 block text-[10px]">Horários:</span>
+                            <span className="font-semibold text-slate-700">
+                              {rel.startTime} às {rel.endTime || '19:00'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* In transit actions & clear role context */}
+                        {rel.status === 'em_deslocamento' && (
+                          <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-blue-950 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                                A caminho do setor de destino: {rel.destinationSector}
+                              </span>
+                              <span className="text-[10px] text-blue-700">
+                                Despachado por: {rel.authorizedBy} ({rel.authorizedAt})
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-slate-600 leading-tight">
+                              {isDestNurse
+                                ? `Você está no setor ${rel.destinationSector}. Assim que o profissional se apresentar no posto, confirme a chegada para iniciar a cobertura assistencial.`
+                                : `Profissional despachado em trânsito. A confirmação de acolhimento físico é responsabilidade do Enfermeiro da ${rel.destinationSector}.`}
+                            </p>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onOpenArrivalModal) {
+                                  onOpenArrivalModal(rel, request);
+                                } else if (onUpdateRelocationStatus) {
+                                  onUpdateRelocationStatus(rel.id, 'em_cobertura');
+                                }
+                              }}
+                              className="w-full sm:w-auto px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs flex items-center justify-center gap-1.5 transition-all"
+                            >
+                              <UserCheck className="w-4 h-4" />
+                              <span>
+                                {isDestNurse
+                                  ? 'Confirmar Chegada no Setor (Iniciar Cobertura)'
+                                  : 'Confirmar Chegada (Supervisão DENF / Coordenação)'}
+                              </span>
+                            </button>
+                          </div>
+                        )}
+
+                        {rel.status === 'em_cobertura' && (
+                          <div className="p-2.5 bg-emerald-50/70 border border-emerald-200 rounded-xl flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                            <span className="text-emerald-900 font-semibold flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <span>
+                                Chegada confirmada por {rel.confirmedArrivalBy || 'Enfermeiro de Plantão'}
+                                {rel.confirmedArrivalAt && ` às ${rel.confirmedArrivalAt}`}
+                              </span>
+                            </span>
+                            {onUpdateRelocationStatus && (
+                              <button
+                                type="button"
+                                onClick={() => onUpdateRelocationStatus(rel.id, 'finalizado')}
+                                className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-white shadow-xs transition-colors"
+                              >
+                                Finalizar Cobertura
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {rel.status === 'aguardando_inicio' && onUpdateRelocationStatus && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => onUpdateRelocationStatus(rel.id, 'em_deslocamento')}
+                              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-xs transition-colors"
+                            >
+                              Liberar e Iniciar Deslocamento
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-                        <div>
-                          <span className="text-slate-400 block text-[10px]">Origem:</span>
-                          <span className="font-bold text-slate-800">{rel.originSector}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block text-[10px]">Destino:</span>
-                          <span className="font-bold text-teal-700">{rel.destinationSector}</span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block text-[10px]">Qtd / Categoria:</span>
-                          <span className="font-bold text-slate-800">
-                            {rel.quantityDispatched}x {rel.professionalCategory}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-slate-400 block text-[10px]">Horários:</span>
-                          <span className="font-semibold text-slate-700">
-                            {rel.startTime} às {rel.endTime}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

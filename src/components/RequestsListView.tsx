@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { DeficitRequest, User, Criticality, RequestStatus } from '../types';
+import { DeficitRequest, User, Criticality, RequestStatus, RelocationMovement } from '../types';
 import { RequestStatusBadge, CriticalityBadge, ClassificationBadge } from './StatusBadge';
 import { PriorityScoreBadge } from './PriorityBadge';
 import {
@@ -12,6 +12,8 @@ import {
   Building,
   AlertCircle,
   FileSpreadsheet,
+  CheckCircle2,
+  UserCheck,
 } from 'lucide-react';
 
 interface RequestsListViewProps {
@@ -19,6 +21,7 @@ interface RequestsListViewProps {
   currentUser: User;
   onOpenDetails: (request: DeficitRequest) => void;
   onOpenDecision?: (request: DeficitRequest) => void;
+  onOpenArrivalModal?: (relocation: RelocationMovement, req?: DeficitRequest) => void;
   title?: string;
   defaultStatusFilter?: string;
   defaultCriticalityFilter?: string;
@@ -29,6 +32,7 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
   currentUser,
   onOpenDetails,
   onOpenDecision,
+  onOpenArrivalModal,
   title = 'Todas as Solicitações de Déficit',
   defaultStatusFilter = 'all',
   defaultCriticalityFilter = 'all',
@@ -385,9 +389,27 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
                         <CriticalityBadge criticality={req.criticality} />
                       </td>
 
-                      {/* Remanejamento Solicitado */}
+                      {/* Remanejamento Solicitado / Em Andamento */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
-                        {req.needsRelocation ? (
+                        {req.relocations && req.relocations.length > 0 ? (
+                          <div className="space-y-1">
+                            {req.relocations.some((r) => r.status === 'em_deslocamento') && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping" />
+                                Em Deslocamento
+                              </span>
+                            )}
+                            {req.relocations.some((r) => r.status === 'em_cobertura') && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Em Cobertura
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-500 block">
+                              {req.relocations.length} movimentação(ões)
+                            </span>
+                          </div>
+                        ) : req.needsRelocation ? (
                           <div>
                             <span className="font-bold text-slate-800 block">
                               {req.requestedRelocationQuantity || req.absentQuantity} prof.
@@ -413,6 +435,26 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 whitespace-nowrap text-right space-x-1.5">
+                        {/* Quick Confirm Arrival if in transit */}
+                        {req.relocations && req.relocations.some((r) => r.status === 'em_deslocamento') && (
+                          <button
+                            id={`btn-arrival-${req.id}`}
+                            onClick={() => {
+                              const inTransit = req.relocations.find((r) => r.status === 'em_deslocamento');
+                              if (inTransit && onOpenArrivalModal) {
+                                onOpenArrivalModal(inTransit, req);
+                              } else {
+                                onOpenDetails(req);
+                              }
+                            }}
+                            className="px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs inline-flex items-center gap-1"
+                            title="Confirmar Chegada do Profissional no Setor"
+                          >
+                            <UserCheck className="w-3 h-3" />
+                            Chegada
+                          </button>
+                        )}
+
                         {/* Quick Decision for DENF */}
                         {isDENFOrAdmin &&
                           (req.status === 'aguardando_analise' ||

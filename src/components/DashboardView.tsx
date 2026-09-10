@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { DeficitRequest, User } from '../types';
+import { DeficitRequest, User, RelocationMovement } from '../types';
 import { RequestStatusBadge, CriticalityBadge, RelocationStatusBadge } from './StatusBadge';
 import { PriorityScoreBadge } from './PriorityBadge';
 import {
@@ -26,6 +26,7 @@ interface DashboardViewProps {
   onOpenDetails: (request: DeficitRequest) => void;
   onOpenDecision: (request: DeficitRequest) => void;
   onOpenClosure?: (request: DeficitRequest) => void;
+  onOpenArrivalModal?: (relocation: RelocationMovement, req?: DeficitRequest) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -36,6 +37,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenDetails,
   onOpenDecision,
   onOpenClosure,
+  onOpenArrivalModal,
 }) => {
   // Scoped requests if solicitante
   const visibleRequests = useMemo(() => {
@@ -112,6 +114,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       .slice(0, 6);
   }, [visibleRequests]);
 
+  // Professionals in transit requiring arrival confirmation
+  const inTransitRelocations = useMemo(() => {
+    const list: { rel: RelocationMovement; req: DeficitRequest }[] = [];
+    requests.forEach((req) => {
+      req.relocations.forEach((rel) => {
+        if (rel.status === 'em_deslocamento') {
+          list.push({ rel, req });
+        }
+      });
+    });
+    return list;
+  }, [requests]);
+
   const isDENFOrAdmin =
     currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
 
@@ -179,6 +194,83 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             Atender Fila de Emergência
           </button>
+        </div>
+      )}
+
+      {/* In-Transit Relocations Strip (Professionals dispatched awaiting sector arrival) */}
+      {inTransitRelocations.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-950 text-white shadow-sm border border-blue-800/60 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-blue-800/60 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                  <span>Profissional em Deslocamento no Hospital ({inTransitRelocations.length})</span>
+                </h3>
+                <p className="text-xs text-blue-200">
+                  {currentUser.role === 'solicitante'
+                    ? 'Atenção: o profissional está a caminho. Confirme a chegada no posto assim que ele se apresentar.'
+                    : 'Remanejamentos autorizados em trânsito. A confirmação de chegada cabe ao Enfermeiro do setor de destino.'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigateTab('relocations')}
+              className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-blue-100 transition-colors shrink-0 text-center"
+            >
+              Ver Painel Operacional →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {inTransitRelocations.map(({ rel, req }) => {
+              const isDestNurse =
+                currentUser.sector.toLowerCase() === rel.destinationSector.toLowerCase() ||
+                currentUser.role === 'solicitante' ||
+                req.solicitorUserId === currentUser.id;
+
+              return (
+                <div
+                  key={rel.id}
+                  className="p-3 bg-white/10 rounded-xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-blue-300">{rel.protocol}</span>
+                      <span className="font-bold text-white">
+                        {rel.professionalName || 'Profissional Designado'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-blue-200 mt-0.5">
+                      <span>{rel.originSector}</span> → <strong className="text-emerald-300 font-bold">{rel.destinationSector}</strong>{' '}
+                      ({rel.professionalCategory})
+                    </div>
+                    <div className="text-[10px] text-slate-300 mt-0.5">
+                      Despachado por: {rel.authorizedBy} às {rel.startTime}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      onOpenArrivalModal
+                        ? onOpenArrivalModal(rel, req)
+                        : onOpenDetails(req)
+                    }
+                    className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all shrink-0"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>
+                      {isDestNurse
+                        ? 'Confirmar Chegada no Setor'
+                        : 'Confirmar Chegada (Supervisão)'}
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

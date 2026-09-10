@@ -202,6 +202,9 @@ export interface RelocationMovement {
   authorizedBy: string;
   authorizedRole: string;
   authorizedAt: string;
+  confirmedArrivalBy?: string;
+  confirmedArrivalRole?: string;
+  confirmedArrivalAt?: string;
   notes?: string;
 }
 
