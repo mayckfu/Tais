@@ -476,12 +476,13 @@ export default function App() {
           {currentTab === 'reports' && canAccessDENF && <ReportsView requests={requests} />}
 
           {/* TAB 11: CONFIGURAÇÕES & PARAMETRIZAÇÃO */}
-          {currentTab === 'settings' && canAccessDENF && (
+          {currentTab === 'settings' && (
             <SettingsView
               settings={settings}
               currentUser={currentUser}
               onSaveSettings={setSettings}
               onResetDemoData={handleResetDemoData}
+              onSwitchUser={handleSwitchUser}
             />
           )}
         </main>

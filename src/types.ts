@@ -7,7 +7,10 @@ export interface User {
   role: UserRole;
   roleTitle: string; // e.g., 'Enfermeiro Assistencial', 'Coordenador de UTI', 'Gerente DENF', 'Administrador'
   sector: string;
-  registrationNumber: string; // Matrícula
+  registrationNumber: string; // Matrícula / COREN
+  status?: 'ativo' | 'inativo';
+  phone?: string;
+  createdDate?: string;
 }
 
 export type RequestStatus =

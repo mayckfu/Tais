@@ -61,8 +61,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const role = currentUser?.role || propUserRole || 'solicitante';
-  const canAccessDENF = role === 'denf' || role === 'admin' || role === 'coordenador';
-  const canAccessAdmin = role === 'admin' || role === 'denf' || role === 'coordenador';
+  const isEnfermeiro = role === 'solicitante';
+  const isCoordenador = role === 'coordenador';
+  const isDiretorDENF = role === 'denf';
+  const isAdmin = role === 'admin';
+
+  // Fila Central DENF: acessível por DENF, Coordenador e Admin (modo auditoria)
+  const canAccessDENF = isDiretorDENF || isCoordenador || isAdmin;
+
+  // Painéis analíticos clínicos assistenciais: Diretor DENF e Coordenador
+  const canAccessClinicalAnalytics = isDiretorDENF || isCoordenador;
+
+  // Governança de TI, Gestão de Usuários e Parâmetros: EXCLUSIVO do Administrador
+  const canAccessAdminSettings = isAdmin;
 
   const pendingCount = counts?.pendingAnalysis ?? pendingQueueCount;
   const activeRelocCount = counts?.activeRelocations ?? activeRelocationsCount;
@@ -158,7 +169,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </button>
 
-        {/* DENF / DIRETORIA QUEUE (Exclusivo Coordenação e DENF) */}
+        {/* DENF / DIRETORIA QUEUE (Exclusivo Coordenação, DENF e Auditoria TI) */}
         {canAccessDENF && (
           <button
             id="nav-tab-pendentes-analise"
@@ -171,7 +182,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center gap-3">
               <Clock className={`w-4 h-4 shrink-0 ${isTabActive('denf_queue') ? 'text-white' : 'text-[#D1A661]'}`} />
-              <span>Fila Central DENF</span>
+              <span>{isAdmin ? 'Fila Central (Auditoria)' : 'Fila Central DENF'}</span>
             </div>
             {pendingCount > 0 && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#D1A661] text-[#2D2D2A]">
@@ -201,8 +212,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </button>
 
-        {/* GESTÃO & CONTROLE ASSISTENCIAL (Exclusivo Coordenação, DENF e Admin) */}
-        {canAccessDENF && (
+        {/* CONTROLE ASSISTENCIAL & QUALIDADE CLÍNICA (Exclusivo Diretor DENF e Coordenador) */}
+        {canAccessClinicalAnalytics && (
           <>
             <div className="px-3 pb-1 pt-3 text-[10px] font-bold tracking-widest text-[#8C9C82] uppercase">
               Controle Assistencial
@@ -277,16 +288,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               <FileSpreadsheet className={`w-4 h-4 shrink-0 ${isTabActive('reports') ? 'text-white' : 'text-[#8C9C82]'}`} />
-              <span>Relatórios & Fechamento</span>
+              <span>Relatórios Oficiais</span>
             </button>
           </>
         )}
 
-        {/* GESTÃO & GOVERNANÇA */}
-        {(canAccessDENF || canAccessAdmin) && (
+        {/* GOVERNANÇA, USUÁRIOS & TI (Exclusivo Administrador) */}
+        {canAccessAdminSettings && (
           <>
             <div className="px-3 pb-1 pt-3 text-[10px] font-bold tracking-widest text-[#8C9C82] uppercase">
-              Governança & Parâmetros
+              Governança & TI
             </div>
 
             <button
@@ -299,19 +310,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               <Settings className={`w-4 h-4 shrink-0 ${isTabActive('settings') ? 'text-white' : 'text-[#8E8E80]'}`} />
-              <span>Configurações & Setores</span>
+              <span>Usuários & Parâmetros</span>
             </button>
           </>
         )}
       </nav>
 
-      {/* Footer System Info */}
-      <div className="p-3.5 border-t border-[#E8E6D9] text-[11px] text-[#7D7D72] flex flex-col gap-1 bg-[#F9F7F2]/60">
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-[#2D2D2A]">DENF Central v2.4</span>
+      {/* Footer User & Role Info */}
+      <div className="p-3.5 border-t border-[#E8E6D9] text-xs bg-[#F9F7F2]/60">
+        <div className="flex items-center justify-between mb-1">
+          <span className="font-bold text-[#2D2D2A] truncate">{currentUser.name}</span>
+          <span
+            className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+              isAdmin
+                ? 'bg-[#2D2D2A] text-white'
+                : isDiretorDENF
+                ? 'bg-[#5A5A40] text-white'
+                : isCoordenador
+                ? 'bg-[#D1A661]/30 text-[#7A581E]'
+                : 'bg-[#E8E6D9] text-[#5A5A40]'
+            }`}
+          >
+            {isAdmin
+              ? 'Admin TI'
+              : isDiretorDENF
+              ? 'Diretoria DENF'
+              : isCoordenador
+              ? 'Coordenador'
+              : 'Enfermeiro'}
+          </span>
         </div>
-        <div className="text-[10px] text-[#8E8E80]">
-          Padrão Assistencial Seguro
+        <div className="text-[11px] text-[#7D7D72] truncate">
+          Setor: {currentUser.sector} • {currentUser.registrationNumber}
         </div>
       </div>
     </div>

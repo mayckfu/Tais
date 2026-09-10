@@ -10,6 +10,7 @@ import {
   Filter,
   UserCheck,
   Building,
+  Shield,
 } from 'lucide-react';
 
 interface DENFQueueViewProps {
@@ -151,6 +152,21 @@ export const DENFQueueView: React.FC<DENFQueueViewProps> = ({
         </div>
       </div>
 
+      {/* Admin Audit Banner */}
+      {currentUser.role === 'admin' && (
+        <div className="p-4 bg-[#F9F7F2] border border-[#D1A661]/40 rounded-2xl flex items-start gap-3 text-xs text-[#2D2D2A]">
+          <Shield className="w-5 h-5 text-[#BA8F4D] shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold text-[#5A5A40] block">
+              Perfil Administrador (Modo de Auditoria Técnica e Suporte TI)
+            </span>
+            <p className="text-[#7D7D72] leading-relaxed">
+              Conforme a Lei do Exercício Profissional da Enfermagem (Lei nº 7.498/86 e Resolução COFEN nº 543/2017), a tomada de decisão clínica e a autorização de remanejamento de profissionais de saúde são competências privativas da <strong>Diretoria de Enfermagem (RT)</strong> e <strong>Coordenações de Enfermagem</strong>. O perfil Administrador atua na sustentação, auditoria de tempos, parâmetros e segurança da informação.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Queue Table */}
       <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] overflow-hidden">
         <div className="overflow-x-auto touch-scroll">
@@ -289,14 +305,28 @@ export const DENFQueueView: React.FC<DENFQueueViewProps> = ({
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 whitespace-nowrap text-right space-x-1.5">
-                        <button
-                          id={`btn-analyze-denf-${req.id}`}
-                          onClick={() => onOpenDecision(req)}
-                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs transition-all inline-flex items-center gap-1.5"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                          <span>Tomar Decisão</span>
-                        </button>
+                        {currentUser.role === 'admin' ? (
+                          <button
+                            id={`btn-audit-denf-${req.id}`}
+                            onClick={() => onOpenDetails(req)}
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#2D2D2A] hover:bg-[#1A1A18] text-white shadow-xs transition-all inline-flex items-center gap-1.5"
+                            title="Visualizar registro técnico e trilha de auditoria (sem poder clínico)"
+                          >
+                            <Shield className="w-3.5 h-3.5 text-[#D1A661]" />
+                            <span>Auditar (TI)</span>
+                          </button>
+                        ) : (
+                          <button
+                            id={`btn-analyze-denf-${req.id}`}
+                            onClick={() => onOpenDecision(req)}
+                            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs transition-all inline-flex items-center gap-1.5"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>
+                              {currentUser.role === 'denf' ? 'Deliberar (DENF)' : 'Parecer Setorial'}
+                            </span>
+                          </button>
+                        )}
                         <button
                           onClick={() => onOpenDetails(req)}
                           className="px-3 py-1.5 rounded-xl text-xs font-medium border border-[#E8E6D9] bg-white hover:bg-[#F9F7F2] text-[#2D2D2A] transition-colors"

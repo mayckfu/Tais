@@ -18,6 +18,9 @@ export const INITIAL_USERS: User[] = [
     roleTitle: 'Enfermeira de Plantão',
     sector: 'UTI',
     registrationNumber: 'COREN-142857',
+    status: 'ativo',
+    phone: '(11) 98765-4321',
+    createdDate: '2025-01-10',
   },
   {
     id: 'usr-002',
@@ -27,24 +30,33 @@ export const INITIAL_USERS: User[] = [
     roleTitle: 'Coordenador de Enfermagem',
     sector: 'Centro Cirúrgico',
     registrationNumber: 'COREN-098231',
+    status: 'ativo',
+    phone: '(11) 98765-4322',
+    createdDate: '2024-08-15',
   },
   {
     id: 'usr-003',
     name: 'Dra. Patrícia Valente',
     email: 'patricia.valente@hospital.org.br',
     role: 'denf',
-    roleTitle: 'Diretoria de Enfermagem (DENF)',
+    roleTitle: 'Diretoria de Enfermagem (DENF / RT)',
     sector: 'DENF / Diretoria',
     registrationNumber: 'COREN-041590',
+    status: 'ativo',
+    phone: '(11) 98765-4323',
+    createdDate: '2023-03-01',
   },
   {
     id: 'usr-004',
     name: 'Carlos Eduardo Mendes',
     email: 'admin@hospital.org.br',
     role: 'admin',
-    roleTitle: 'Administrador do Sistema',
+    roleTitle: 'Administrador de TI & Governança',
     sector: 'Gestão da Qualidade & TI',
     registrationNumber: 'ADM-00194',
+    status: 'ativo',
+    phone: '(11) 98765-4324',
+    createdDate: '2023-01-05',
   },
 ];
 
@@ -1265,3 +1277,88 @@ export function resetStorageToDefaults(): void {
     console.error('Failed to reset storage:', err);
   }
 }
+
+// User Management Services (Admin exclusive)
+export function addUser(userData: Omit<User, 'id'>): User {
+  const users = getStoredUsers();
+  const newUser: User = {
+    ...userData,
+    id: `usr-${Date.now()}`,
+    status: userData.status || 'ativo',
+    createdDate: new Date().toISOString().split('T')[0],
+  };
+  users.push(newUser);
+  saveStoredUsers(users);
+  return newUser;
+}
+
+export function updateUser(id: string, updates: Partial<User>): User | null {
+  const users = getStoredUsers();
+  const index = users.findIndex((u) => u.id === id);
+  if (index === -1) return null;
+
+  users[index] = { ...users[index], ...updates };
+  saveStoredUsers(users);
+
+  // If active user was updated, keep in sync
+  const activeUser = getActiveUser();
+  if (activeUser.id === id) {
+    setActiveUser(users[index]);
+  }
+
+  return users[index];
+}
+
+export function deleteUser(id: string): boolean {
+  const users = getStoredUsers();
+  const filtered = users.filter((u) => u.id !== id);
+  if (filtered.length === users.length) return false;
+
+  saveStoredUsers(filtered);
+  return true;
+}
+
+export function toggleUserStatus(id: string): User | null {
+  const users = getStoredUsers();
+  const user = users.find((u) => u.id === id);
+  if (!user) return null;
+
+  user.status = user.status === 'inativo' ? 'ativo' : 'inativo';
+  saveStoredUsers(users);
+  return user;
+}
+
+// RBAC Clinical Governance & IT Separation Helpers
+export const RBAC = {
+  // Can take clinical/assistance decisions (Remanejamentos, Alocações)
+  // Restrito a DENF (Diretoria de Enfermagem/RT) e Coordenador. Admin de TI é expressamente proibido.
+  canMakeClinicalDecision: (role: string): boolean => {
+    return role === 'denf' || role === 'coordenador';
+  },
+
+  // Prerrogativa plena de homologar remanejamento inter-setorial e contingências globais
+  isClinicalDirector: (role: string): boolean => {
+    return role === 'denf';
+  },
+
+  // Prerrogativa de emitir parecer técnico do bloco e autorizar remanejamento interno da área
+  isAreaCoordinator: (role: string): boolean => {
+    return role === 'coordenador';
+  },
+
+  // Prerrogativa de registrar desfecho assistencial e confirmar chegada física no posto
+  isDutyNurse: (role: string): boolean => {
+    return role === 'solicitante';
+  },
+
+  // Prerrogativa de gerenciar usuários, cadastros mestres, SLAs e auditoria técnica
+  // Restrito ao Administrador de TI / Governança
+  canManageSystem: (role: string): boolean => {
+    return role === 'admin';
+  },
+
+  // Visualização da Fila DENF (Admin visualiza em modo de suporte/auditoria)
+  canViewDENFQueue: (role: string): boolean => {
+    return role === 'denf' || role === 'coordenador' || role === 'admin';
+  },
+};
