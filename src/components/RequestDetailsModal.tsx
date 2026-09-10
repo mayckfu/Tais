@@ -53,8 +53,9 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
     | 'auditoria'
   >('resumo');
 
-  const isDENFOrAdmin =
-    currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
+  const isLeadership =
+    currentUser.role === 'coordenador' || currentUser.role === 'denf' || currentUser.role === 'admin';
+  const isDENFOrAdmin = isLeadership;
   const isClosedOrCancelled = request.status === 'encerrada' || request.status === 'cancelada';
 
   return (
@@ -119,14 +120,29 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                 </button>
               )}
 
-              <button
-                id="btn-modal-open-impact"
-                onClick={() => onOpenImpact(request)}
-                className="px-3 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-600 text-white font-bold shadow-xs flex items-center gap-1.5"
-              >
-                <AlertOctagon className="w-3.5 h-3.5" />
-                <span>Avaliar Impacto</span>
-              </button>
+              {/* Avaliação de Impacto Assistencial - Alçada exclusiva da Coordenação e Diretoria (mesmo pós-encerramento) */}
+              {isLeadership && request.status !== 'cancelada' && (
+                <button
+                  id="btn-modal-open-impact"
+                  onClick={() => onOpenImpact(request)}
+                  className={`px-3 py-1.5 rounded-lg text-white font-bold shadow-xs flex items-center gap-1.5 transition-all ${
+                    request.impactAssessment
+                      ? 'bg-rose-800 hover:bg-rose-700'
+                      : 'bg-rose-700 hover:bg-rose-600 ring-2 ring-rose-400/40'
+                  }`}
+                  title="Avaliação gerencial de impacto e riscos assistenciais (Coordenação / Diretoria)"
+                >
+                  <AlertOctagon className="w-3.5 h-3.5" />
+                  <span>
+                    {request.impactAssessment ? 'Reavaliar Impacto (Gestão)' : 'Avaliar Impacto (Gestão)'}
+                  </span>
+                  {request.status === 'encerrada' && (
+                    <span className="text-[10px] bg-rose-950/80 px-1.5 py-0.5 rounded font-medium text-rose-200">
+                      Pós-Encerramento
+                    </span>
+                  )}
+                </button>
+              )}
 
               {!isClosedOrCancelled && (
                 <button
@@ -561,55 +577,146 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
           {/* TAB 6: IMPACTO */}
           {activeTab === 'impacto' && (
             <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="flex items-center gap-2.5">
+                  <AlertOctagon className="w-5 h-5 text-rose-700 shrink-0" />
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">
+                      Avaliação de Impacto Assistencial & Segurança do Paciente
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Competência gerencial da Coordenação de Enfermagem e Diretoria (DENF).
+                    </p>
+                  </div>
+                </div>
+
+                {isLeadership && request.status !== 'cancelada' && (
+                  <button
+                    onClick={() => onOpenImpact(request)}
+                    className="px-3.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all"
+                  >
+                    <AlertOctagon className="w-3.5 h-3.5" />
+                    <span>
+                      {request.impactAssessment ? 'Editar Avaliação de Impacto' : 'Registrar Avaliação de Impacto'}
+                    </span>
+                    {request.status === 'encerrada' && (
+                      <span className="text-[10px] bg-rose-950/80 px-1.5 py-0.5 rounded font-medium text-rose-200 ml-1">
+                        Pós-Encerramento
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+
               {request.impactAssessment ? (
                 <div className="p-4 bg-rose-50/40 border border-rose-200 rounded-xl space-y-3">
-                  <div className="flex justify-between items-center border-b border-rose-200 pb-2">
+                  <div className="flex flex-wrap justify-between items-center border-b border-rose-200 pb-2.5 gap-2">
                     <div>
-                      <span className="text-[10px] text-rose-800 uppercase font-bold block">
-                        Impacto Assistencial Avaliado
+                      <span className="text-[10px] text-rose-800 uppercase font-bold tracking-wider block">
+                        Impacto Assistencial Classificado
                       </span>
-                      <h4 className="font-extrabold text-sm text-rose-950 uppercase">
+                      <h4 className="font-extrabold text-sm text-rose-950 uppercase flex items-center gap-2 mt-0.5">
                         Grau: {request.impactAssessment.assistentialImpact}
                       </h4>
                     </div>
-                    <span className="text-[11px] text-slate-500">
-                      Por: {request.impactAssessment.assessedBy} ({request.impactAssessment.assessedAt})
-                    </span>
+                    <div className="text-right text-[11px] text-slate-500">
+                      <span>Avaliado por: <strong>{request.impactAssessment.assessedBy}</strong></span>
+                      <span className="block text-[10px] text-slate-400">em {request.impactAssessment.assessedAt}</span>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-2.5 rounded bg-white border border-slate-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+                    <div className="p-2.5 rounded-lg bg-white border border-slate-200">
                       <span className="text-slate-400 block text-[10px]">Redução de Capacidade:</span>
                       <span className="font-bold text-slate-800">
                         {request.impactAssessment.reducedOperationalCapacity ? 'Sim' : 'Não'}
                       </span>
+                      {request.impactAssessment.capacityReductionDetails && (
+                        <p className="text-[10px] text-slate-500 mt-1 italic">
+                          {request.impactAssessment.capacityReductionDetails}
+                        </p>
+                      )}
                     </div>
-                    <div className="p-2.5 rounded bg-white border border-slate-200">
+                    <div className="p-2.5 rounded-lg bg-white border border-slate-200">
                       <span className="text-slate-400 block text-[10px]">Redistribuição de Pacientes:</span>
                       <span className="font-bold text-slate-800">
                         {request.impactAssessment.patientRedistribution ? 'Sim' : 'Não'}
                       </span>
+                      {request.impactAssessment.patientRedistributionDetails && (
+                        <p className="text-[10px] text-slate-500 mt-1 italic">
+                          {request.impactAssessment.patientRedistributionDetails}
+                        </p>
+                      )}
                     </div>
-                    <div className="p-2.5 rounded bg-white border border-slate-200">
-                      <span className="text-slate-400 block text-[10px]">Atrasos no Cuidado:</span>
+                    <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                      <span className="text-slate-400 block text-[10px]">Atrasos na Assistência:</span>
                       <span className="font-bold text-slate-800">
                         {request.impactAssessment.careDelay ? 'Sim' : 'Não'}
                       </span>
+                      {request.impactAssessment.careDelayDetails && (
+                        <p className="text-[10px] text-slate-500 mt-1 italic">
+                          {request.impactAssessment.careDelayDetails}
+                        </p>
+                      )}
                     </div>
-                    <div className="p-2.5 rounded bg-white border border-slate-200">
+                    <div className="p-2.5 rounded-lg bg-white border border-slate-200">
                       <span className="text-slate-400 block text-[10px]">Risco à Segurança:</span>
-                      <span className="font-bold text-rose-700">
+                      <span className={`font-bold ${request.impactAssessment.patientSecurityRisk ? 'text-rose-700' : 'text-slate-800'}`}>
                         {request.impactAssessment.patientSecurityRisk ? 'SIM' : 'Não'}
+                      </span>
+                      {request.impactAssessment.securityRiskDetails && (
+                        <p className="text-[10px] text-rose-700 mt-1 italic">
+                          {request.impactAssessment.securityRiskDetails}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs pt-1 border-t border-rose-200/60">
+                    <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                      <span className="text-slate-400 block text-[10px]">Bloqueio de Leitos:</span>
+                      <span className="font-bold text-slate-800">
+                        {request.impactAssessment.bedRestriction
+                          ? `Sim (${request.impactAssessment.restrictedBedsCount || 0} leitos)`
+                          : 'Não'}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                      <span className="text-slate-400 block text-[10px]">Sobrecarga da Equipe:</span>
+                      <span className="font-bold text-slate-800">
+                        {request.impactAssessment.teamOverload ? 'Sim' : 'Não'}
+                      </span>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-white border border-slate-200">
+                      <span className="text-slate-400 block text-[10px]">Notificação ao NSP:</span>
+                      <span className="font-bold text-slate-800">
+                        {request.impactAssessment.nspNotification ? 'Sim' : 'Não'}
                       </span>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl">
-                  <p className="font-bold text-slate-700">Impacto assistencial não registrado</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Clique em "Avaliar Impacto" no topo da janela para preencher os indicadores.
-                  </p>
+                <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                  <AlertOctagon className="w-8 h-8 text-slate-400 mx-auto" />
+                  <div>
+                    <p className="font-bold text-slate-700">
+                      Avaliação de Impacto Assistencial Não Registrada
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      {isLeadership
+                        ? 'Como Coordenador ou Diretor, você pode registrar os desdobramentos assistenciais e riscos deste déficit a qualquer momento, inclusive após o encerramento do chamado pelo enfermeiro.'
+                        : 'Esta avaliação é de competência da Coordenação de Enfermagem ou Diretoria (DENF) para auditoria e controle de riscos hospitalares.'}
+                    </p>
+                  </div>
+                  {isLeadership && request.status !== 'cancelada' && (
+                    <button
+                      onClick={() => onOpenImpact(request)}
+                      className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white font-bold text-xs shadow-xs inline-flex items-center gap-1.5"
+                    >
+                      <AlertOctagon className="w-3.5 h-3.5" />
+                      <span>Preencher Avaliação de Impacto</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

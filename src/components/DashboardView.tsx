@@ -282,11 +282,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Left 2 Cols: Urgências Assistenciais */}
         <div className="xl:col-span-2 bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-[#E8E6D9] pb-3.5">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-[#9E5A4E]" />
-              <h2 className="font-serif font-bold text-base text-[#2D2D2A]">
-                Ocorrências de Alta Prioridade Assistencial
-              </h2>
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className="w-5 h-5 text-[#9E5A4E] shrink-0" />
+              <div>
+                <h2 className="font-serif font-bold text-base text-[#2D2D2A]">
+                  Ocorrências de Alta Prioridade Assistencial
+                </h2>
+                <p className="text-[11px] text-[#7D7D72]">
+                  {currentUser.role === 'solicitante'
+                    ? `Filtrado para sua unidade: ${currentUser.sector}`
+                    : 'Visão Institucional: Demandas prioritárias de todas as unidades'}
+                </p>
+              </div>
             </div>
             <button
               onClick={() => onNavigateTab(currentUser.role === 'solicitante' ? 'requests' : 'denf_queue')}
@@ -532,15 +539,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Recent Requests Table */}
       <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] overflow-hidden">
-        <div className="p-4 bg-[#F9F7F2] border-b border-[#E8E6D9] flex items-center justify-between">
-          <h2 className="font-serif font-bold text-sm text-[#2D2D2A]">
-            Últimas Ocorrências Registradas
-          </h2>
+        <div className="p-4 bg-[#F9F7F2] border-b border-[#E8E6D9] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="font-serif font-bold text-sm text-[#2D2D2A]">
+              Últimas Ocorrências Registradas
+            </h2>
+            <p className="text-[11px] text-[#7D7D72] mt-0.5 flex items-center gap-1.5">
+              {currentUser.role === 'solicitante' ? (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#8C9C82]"></span>
+                  <span>
+                    Exibindo apenas ocorrências da sua unidade: <strong>{currentUser.sector}</strong>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="inline-block w-2 h-2 rounded-full bg-[#5A5A40]"></span>
+                  <span>
+                    Visão Geral do Hospital: Todos os setores, blocos e enfermarias
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
           <button
             onClick={() => onNavigateTab('requests')}
-            className="text-xs font-bold text-[#5A5A40] hover:text-[#3E3E32]"
+            className="text-xs font-bold text-[#5A5A40] hover:text-[#3E3E32] self-start sm:self-auto"
           >
-            Ver Histórico Completo ({visibleRequests.length}) →
+            {currentUser.role === 'solicitante'
+              ? `Ver Todas da ${currentUser.sector} (${visibleRequests.length}) →`
+              : `Ver Histórico Geral (${visibleRequests.length}) →`}
           </button>
         </div>
 

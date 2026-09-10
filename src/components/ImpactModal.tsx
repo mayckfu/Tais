@@ -124,10 +124,10 @@ export const ImpactModal: React.FC<ImpactModalProps> = ({
       <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-[#E8E6D9] overflow-hidden animate-in zoom-in-95">
         <div className="bg-gradient-to-r from-[#9E5A4E] to-[#7D3F35] text-white px-6 py-4.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <ShieldAlert className="w-5 h-5 text-white" />
+            <ShieldAlert className="w-5 h-5 text-white shrink-0" />
             <div>
               <span className="text-[10px] uppercase tracking-widest font-bold text-[#F5DFDC]">
-                Qualidade & Segurança do Paciente
+                Gestão da Qualidade • Alçada: Coordenação & Diretoria
               </span>
               <h3 className="font-serif text-base font-bold">
                 Avaliação de Impacto Assistencial — {request.protocol}
@@ -140,6 +140,27 @@ export const ImpactModal: React.FC<ImpactModalProps> = ({
         </div>
 
         <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+          {/* Identificação da Chefia Avaliadora */}
+          <div className="p-3 bg-[#F9F7F2] border border-[#E8E6D9] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span className="text-[10px] text-[#7D7D72] uppercase font-bold block">
+                Avaliador Responsável (Coordenação / Diretoria):
+              </span>
+              <p className="font-bold text-[#2D2D2A] text-xs">
+                {currentUser.name} <span className="text-[#7D7D72] font-normal">({currentUser.roleTitle})</span>
+              </p>
+            </div>
+            {request.status === 'encerrada' ? (
+              <span className="px-2.5 py-1 rounded-full bg-[#8C9C82]/20 text-[#3E4D36] border border-[#8C9C82]/30 text-[10px] font-bold self-start sm:self-auto">
+                Auditoria Pós-Encerramento
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full bg-[#5A5A40]/10 text-[#5A5A40] text-[10px] font-bold self-start sm:self-auto">
+                Avaliação em Aberto
+              </span>
+            )}
+          </div>
+
           {/* Gravidade Geral */}
           <div>
             <label className="block font-bold text-[#2D2D2A] mb-1.5">
