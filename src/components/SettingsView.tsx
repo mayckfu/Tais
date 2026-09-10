@@ -19,9 +19,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newSector, setNewSector] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [successMsg, setSuccessMsg] = useState(false);
+  const [resetSuccessMsg, setResetSuccessMsg] = useState(false);
 
   const isDENFOrAdmin =
     currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
+
+  const handleResetWithFeedback = () => {
+    onResetDemoData();
+    setResetSuccessMsg(true);
+    setTimeout(() => setResetSuccessMsg(false), 4000);
+  };
 
   const handleAddSector = () => {
     if (!newSector.trim() || formData.sectors.includes(newSector.trim())) return;
@@ -80,16 +87,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div className="flex items-center gap-2">
           <button
-            onClick={onResetDemoData}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-slate-300 hover:bg-slate-100 text-slate-700"
+            onClick={handleResetWithFeedback}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold border border-[#C89B50]/50 bg-[#C89B50]/10 hover:bg-[#C89B50]/20 text-[#5C451D] transition-colors"
+            title="Zera o armazenamento local e carrega dados com tempos cronologicamente sincronizados (início, decisão, remanejamento e encerramento)"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restaurar Dados Demo</span>
+            <RotateCcw className="w-3.5 h-3.5 text-[#A37830]" />
+            <span>Zerar e Sincronizar Dados</span>
           </button>
           {isDENFOrAdmin && (
             <button
               onClick={handleSave}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-xs"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs"
             >
               <Save className="w-3.5 h-3.5" />
               <span>Salvar Parâmetros</span>
@@ -97,6 +105,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
         </div>
       </div>
+
+      {resetSuccessMsg && (
+        <div className="p-3.5 bg-[#8C9C82]/20 border border-[#8C9C82]/50 text-[#2D3E28] font-bold rounded-xl flex items-center gap-2.5 text-xs animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-[#445E3B] shrink-0" />
+          <span>
+            Dados zerados com sucesso! Todos os chamados, remanejamentos, avaliações de impacto e encerramentos estão 100% sincronizados cronologicamente.
+          </span>
+        </div>
+      )}
 
       {successMsg && (
         <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold rounded-lg flex items-center gap-2 text-xs">
