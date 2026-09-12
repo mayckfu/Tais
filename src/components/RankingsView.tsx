@@ -1,12 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { DeficitRequest } from '../types';
-import { Trophy, TrendingUp, AlertTriangle, ShieldAlert, Award, Clock, ArrowRightLeft } from 'lucide-react';
+import { usePlatform } from '../hooks/usePlatform';
+import {
+  Trophy,
+  TrendingUp,
+  AlertTriangle,
+  ShieldAlert,
+  Award,
+  Clock,
+  ArrowRightLeft,
+  Smartphone,
+} from 'lucide-react';
 
 interface RankingsViewProps {
   requests: DeficitRequest[];
 }
 
 export const RankingsView: React.FC<RankingsViewProps> = ({ requests }) => {
+  const { isMobile } = usePlatform();
   const [periodFilter, setPeriodFilter] = useState<'all' | 'today'>('all');
 
   const filteredRequests = useMemo(() => {
@@ -170,6 +181,12 @@ export const RankingsView: React.FC<RankingsViewProps> = ({ requests }) => {
             <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
               Painel de Desempenho Institucional
             </span>
+            {isMobile && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E8E6D9] text-[#5A5A40] border border-[#D5D3C5]">
+                <Smartphone className="w-3 h-3" />
+                Rankings em Modo Mobile
+              </span>
+            )}
           </div>
           <h2 className="text-xl font-extrabold text-slate-900 mt-1">Rankings Gerenciais</h2>
           <p className="text-xs text-slate-500 mt-0.5">

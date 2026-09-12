@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { DeficitRequest, User, RelocationMovement } from '../types';
 import { RequestStatusBadge, CriticalityBadge, RelocationStatusBadge } from './StatusBadge';
 import { PriorityScoreBadge } from './PriorityBadge';
+import { MobileProtocolCard } from './MobileProtocolCard';
+import { playHospitalChime } from '../services/soundEngine';
 import {
   ShieldAlert,
   Clock,
@@ -17,6 +19,10 @@ import {
   AlertCircle,
   FileText,
   ClipboardList,
+  Bell,
+  Volume2,
+  Sparkles,
+  Radio,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -28,6 +34,9 @@ interface DashboardViewProps {
   onOpenDecision: (request: DeficitRequest) => void;
   onOpenClosure?: (request: DeficitRequest) => void;
   onOpenArrivalModal?: (relocation: RelocationMovement, req?: DeficitRequest) => void;
+  onOpenNotifications?: () => void;
+  onTriggerSimulatedAlert?: () => void;
+  unreadAlertsCount?: number;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -39,6 +48,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenDecision,
   onOpenClosure,
   onOpenArrivalModal,
+  onOpenNotifications,
+  onTriggerSimulatedAlert,
+  unreadAlertsCount = 0,
 }) => {
   // Scoped requests if solicitante
   const visibleRequests = useMemo(() => {
@@ -196,6 +208,64 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           >
             Atender Fila de Emergência
           </button>
+        </div>
+      )}
+
+      {/* Central de Notificação Push / Alerta Visual e Sonoro do Plantão - EXCLUSIVO DO ENFERMEIRO DE PLANTÃO */}
+      {isEnfermeiroDePlantao && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2A3B32] via-[#2F4238] to-[#1E2B24] text-white shadow-sm border border-[#3D5648] relative overflow-hidden">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-[#8C9C82]/25 border border-[#8C9C82]/40 flex items-center justify-center shrink-0 shadow-xs">
+                <Radio className="w-5 h-5 text-[#C4D1BD] animate-pulse" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <span>Alerta Sonoro & Notificação Push do Plantão ({currentUser.sector})</span>
+                  </h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#8C9C82]/30 text-[#D8E2D3] border border-[#8C9C82]/50">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                    Canal DENF ↔ {currentUser.sector} Ativo
+                  </span>
+                </div>
+                <p className="text-xs text-[#BAC8B3] mt-0.5 max-w-2xl">
+                  Avisos acústicos (toque de 3 tons), vibração háptica no celular e pop-up push em tempo real assim que a DENF delibera sobre o setor {currentUser.sector}.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <button
+                id="btn-dash-test-chime"
+                onClick={() => playHospitalChime('dispatch')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/20 transition-all hover:-translate-y-0.5"
+                title="Testar campainha acústica de 3 tons do posto"
+              >
+                <Volume2 className="w-3.5 h-3.5 text-[#D1A661]" />
+                <span>Testar Som</span>
+              </button>
+              <button
+                id="btn-dash-simulate-alert"
+                onClick={onTriggerSimulatedAlert}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#D1A661] hover:bg-[#BA8F4D] text-[#2D2D2A] text-xs font-bold transition-all shadow-xs hover:-translate-y-0.5"
+                title="Simular deliberação da DENF com som, vibração e banner para o seu setor"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Simular Deliberação DENF</span>
+              </button>
+              {onOpenNotifications && (
+                <button
+                  id="btn-dash-open-notifs"
+                  onClick={onOpenNotifications}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/20 transition-all"
+                >
+                  <Bell className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Central ({unreadAlertsCount})</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -419,30 +489,32 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     className="p-4 rounded-xl border border-[#E8E6D9] bg-[#F9F7F2] flex flex-col gap-3 hover:border-[#8C9C82] transition-all"
                   >
                     {/* Linha 1: Identificação, Status Oficial e Prioridade */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8E6D9]/70 pb-2.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-mono font-bold text-xs text-[#2D2D2A] bg-white px-2 py-0.5 rounded border border-[#E8E6D9]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E8E6D9]/70 pb-2.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono font-bold text-xs text-[#2D2D2A] bg-white px-2 py-0.5 rounded border border-[#E8E6D9] shrink-0">
                           {req.protocol}
                         </span>
                         <RequestStatusBadge status={req.status} />
                         <CriticalityBadge criticality={req.criticality} />
                         <PriorityScoreBadge score={req.priorityScore} level={req.priorityLevel} />
                       </div>
-                      <span className="text-[11px] text-[#8E8E80] font-medium flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-[#8E8E80]" />
-                        {req.requestDate} às {req.requestTime}
+                      <span className="text-[11px] text-[#8E8E80] font-medium flex items-center gap-1 shrink-0">
+                        <Clock className="w-3 h-3 text-[#8E8E80] shrink-0" />
+                        <span className="whitespace-nowrap">{req.requestDate} às {req.requestTime}</span>
                       </span>
                     </div>
 
                     {/* Linha 2: Setor Solicitante e Déficit */}
-                    <div className="text-xs">
-                      <span className="font-bold text-[#2D2D2A] text-sm">
-                        {req.solicitorSector}:
-                      </span>{' '}
-                      <span className="font-extrabold text-[#9E5A4E]">
-                        {req.absentQuantity}x {req.absentCategory}
-                      </span>
-                      <p className="text-[11px] text-[#7D7D72] mt-0.5">
+                    <div className="text-xs space-y-0.5">
+                      <div className="flex flex-wrap items-baseline gap-1.5">
+                        <span className="font-bold text-[#2D2D2A] text-sm break-words">
+                          {req.solicitorSector}:
+                        </span>
+                        <span className="font-extrabold text-[#9E5A4E] break-words">
+                          {req.absentQuantity}x {req.absentCategory}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#7D7D72] leading-snug break-words">
                         Plantão: <strong>{req.affectedShift}</strong> • Solicitante: <strong>{req.solicitorName}</strong>
                         {req.absentReason && (
                           <span className="capitalize"> • Motivo: {req.absentReason.replace('_', ' ')}</span>
@@ -511,14 +583,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     )}
 
                     {/* Linha 4: Ações Operacionais (Encerramento pelo Enfermeiro ou Deliberação DENF) */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-[#E8E6D9]/50">
-                      <div className="text-[11px] text-[#7D7D72]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-[#E8E6D9]/50">
+                      <div className="text-[11px] text-[#7D7D72] break-words">
                         {isAttended ? (
                           <span className="text-[#3E4D36] font-semibold flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-[#5A6D50]" />
-                            {isEnfermeiroDePlantao
-                              ? 'Atendimento prestado. Pronto para registro de desfecho pelo plantonista.'
-                              : 'Atendimento prestado. Fechamento da ocorrência a ser realizado pelo Enfermeiro de Plantão.'}
+                            <CheckCircle2 className="w-3 h-3 text-[#5A6D50] shrink-0" />
+                            <span>
+                              {isEnfermeiroDePlantao
+                                ? 'Atendimento prestado. Pronto para registro de desfecho pelo plantonista.'
+                                : 'Atendimento prestado. Fechamento da ocorrência a ser realizado pelo Enfermeiro de Plantão.'}
+                            </span>
                           </span>
                         ) : (
                           <span className="text-[#7D7D72]">
@@ -527,17 +601,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 ml-auto">
+                      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-auto">
                         {/* Botão de Encerramento / Desfecho: restrito exclusivamente ao Enfermeiro de Plantão */}
                         {isEnfermeiroDePlantao && isAttended && req.status !== 'encerrada' && (
                           <button
                             id={`btn-closure-card-${req.id}`}
                             onClick={() => (onOpenClosure ? onOpenClosure(req) : onOpenDetails(req))}
-                            className="px-3.5 py-1.5 rounded-lg bg-[#4A6344] hover:bg-[#3B5036] text-white font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all"
+                            className="flex-1 sm:flex-none px-3.5 py-2 rounded-lg bg-[#4A6344] hover:bg-[#3B5036] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"
                             title="Registrar desfecho e encerrar o chamado (Exclusivo Enfermeiro de Plantão)"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Registrar Desfecho (Encerrar)</span>
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <span>Registrar Desfecho</span>
                           </button>
                         )}
 
@@ -547,17 +621,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             <button
                               id={`btn-decision-card-${req.id}`}
                               onClick={() => onOpenDecision(req)}
-                              className="px-3.5 py-1.5 rounded-lg bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold text-xs shadow-xs flex items-center gap-1.5"
+                              className="flex-1 sm:flex-none px-3.5 py-2 rounded-lg bg-[#5A5A40] hover:bg-[#4A4A35] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 whitespace-nowrap"
                             >
-                              <UserCheck className="w-3.5 h-3.5" />
-                              <span>Deliberar / Analisar</span>
+                              <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                              <span>Deliberar</span>
                             </button>
                           )}
 
                         <button
                           id={`btn-details-card-${req.id}`}
                           onClick={() => onOpenDetails(req)}
-                          className="px-3.5 py-1.5 rounded-lg border border-[#E8E6D9] bg-white hover:bg-[#F9F7F2] text-[#2D2D2A] font-semibold text-xs transition-colors"
+                          className="flex-1 sm:flex-none px-3.5 py-2 rounded-lg border border-[#E8E6D9] bg-white hover:bg-[#F9F7F2] text-[#2D2D2A] font-semibold text-xs transition-colors text-center whitespace-nowrap"
                         >
                           Ver Detalhes
                         </button>
@@ -712,10 +786,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+        {/* Mobile View: Protocol Cards */}
+        <div className="block sm:hidden p-3 space-y-3 bg-[#F9F7F2]/50">
+          {recentRequests.length === 0 ? (
+            <div className="p-6 text-center text-[#8E8E80] text-xs">
+              Nenhuma ocorrência recente registrada.
+            </div>
+          ) : (
+            recentRequests.map((req) => (
+              <MobileProtocolCard
+                key={req.id}
+                request={req}
+                currentUser={currentUser}
+                onSelectRequest={onOpenDetails}
+                onOpenDecisionModal={onOpenDecision}
+                onOpenClosureModal={onOpenClosure}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Desktop / Tablet View: Table */}
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse min-w-[760px]">
             <thead>
-              <tr className="bg-[#F9F7F2]/60 text-[#7D7D72] font-bold border-b border-[#E8E6D9] uppercase text-[10px] tracking-wider">
+              <tr className="bg-[#F9F7F2]/60 text-[#7D7D72] font-bold border-b border-[#E8E6D9] uppercase text-[10px] tracking-wider whitespace-nowrap">
                 <th className="py-3 px-4">Protocolo</th>
                 <th className="py-3 px-4">Setor</th>
                 <th className="py-3 px-4">Ausência</th>
@@ -728,16 +823,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <tbody className="divide-y divide-[#E8E6D9]/50">
               {recentRequests.map((req) => (
                 <tr key={req.id} className="hover:bg-[#F9F7F2]/60 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-[#2D2D2A]">
+                  <td className="py-3 px-4 font-mono font-bold text-[#2D2D2A] whitespace-nowrap">
                     {req.protocol}
                     <span className="text-[10px] text-[#8E8E80] block font-normal">
                       {req.requestDate} {req.requestTime}
                     </span>
                   </td>
-                  <td className="py-3 px-4 font-semibold text-[#2D2D2A]">
+                  <td className="py-3 px-4 font-semibold text-[#2D2D2A] whitespace-nowrap">
                     {req.solicitorSector}
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 whitespace-nowrap">
                     <span className="font-bold text-[#2D2D2A]">
                       {req.absentQuantity}x {req.absentCategory}
                     </span>
@@ -745,21 +840,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       Plantão {req.affectedShift}
                     </span>
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 whitespace-nowrap">
                     <CriticalityBadge criticality={req.criticality} />
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 whitespace-nowrap">
                     <RequestStatusBadge status={req.status} />
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-3 px-4 whitespace-nowrap">
                     <PriorityScoreBadge score={req.priorityScore} level={req.priorityLevel} />
                   </td>
-                  <td className="py-3 px-4 text-right">
+                  <td className="py-3 px-4 text-right whitespace-nowrap">
                     <button
                       onClick={() => onOpenDetails(req)}
-                      className="px-3 py-1 rounded-lg border border-[#E8E6D9] hover:bg-[#F9F7F2] text-[#2D2D2A] font-medium text-xs transition-colors"
+                      className="px-3 py-1.5 rounded-lg border border-[#E8E6D9] hover:bg-[#F9F7F2] text-[#2D2D2A] font-semibold text-xs transition-colors"
                     >
-                      Ver
+                      Ver Detalhes
                     </button>
                   </td>
                 </tr>

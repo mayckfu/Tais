@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { DeficitRequest, User } from '../types';
 import { RequestStatusBadge, CriticalityBadge, ClassificationBadge } from './StatusBadge';
 import { PriorityScoreBadge } from './PriorityBadge';
+import { usePlatform } from '../hooks/usePlatform';
+import { MobileProtocolCard } from './MobileProtocolCard';
 import {
   Clock,
   ShieldAlert,
@@ -11,6 +13,9 @@ import {
   UserCheck,
   Building,
   Shield,
+  Smartphone,
+  LayoutGrid,
+  Table as TableIcon,
 } from 'lucide-react';
 
 interface DENFQueueViewProps {
@@ -27,6 +32,9 @@ export const DENFQueueView: React.FC<DENFQueueViewProps> = ({
   onOpenDetails,
 }) => {
   const [filterCriticalOnly, setFilterCriticalOnly] = useState(false);
+  const { isMobile } = usePlatform();
+  const [viewLayout, setViewLayout] = useState<'auto' | 'cards' | 'table'>('auto');
+  const isCardsMode = viewLayout === 'auto' ? isMobile : viewLayout === 'cards';
 
   // Filter only pending or in analysis requests
   const pendingRequests = useMemo(() => {
@@ -167,8 +175,75 @@ export const DENFQueueView: React.FC<DENFQueueViewProps> = ({
         </div>
       )}
 
-      {/* Queue Table */}
-      <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] overflow-hidden">
+      {/* View Layout Switcher & Status */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 sm:p-4 rounded-2xl border border-[#E8E6D9] shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-[#2D2D2A]">
+            {prioritizedQueue.length} ocorrência(s) na fila
+          </span>
+          {isMobile && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E8E6D9] text-[#5A5A40] border border-[#D5D3C5]">
+              <Smartphone className="w-3 h-3" />
+              Mobile Detectado
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center bg-[#F9F7F2] p-1 rounded-xl border border-[#E8E6D9] text-xs">
+          <button
+            onClick={() => setViewLayout('cards')}
+            className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+              isCardsMode
+                ? 'bg-[#5A5A40] text-white shadow-xs'
+                : 'text-[#7D7D72] hover:text-[#2D2D2A]'
+            }`}
+            title="Cartões de Protocolo (Touch)"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Cartões</span>
+          </button>
+          <button
+            onClick={() => setViewLayout('table')}
+            className={`px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+              !isCardsMode
+                ? 'bg-[#5A5A40] text-white shadow-xs'
+                : 'text-[#7D7D72] hover:text-[#2D2D2A]'
+            }`}
+            title="Tabela Completa (Desktop)"
+          >
+            <TableIcon className="w-3.5 h-3.5" />
+            <span>Tabela</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Queue Content: Cards or Table */}
+      {isCardsMode ? (
+        <div id="denf-queue-mobile-cards" className="space-y-3">
+          {prioritizedQueue.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-8 text-center text-[#8E8E80]">
+              <CheckCircle className="w-10 h-10 mx-auto mb-2 text-[#8C9C82]" />
+              <p className="font-serif font-bold text-[#2D2D2A] text-base">Fila DENF Zerada!</p>
+              <p className="text-xs text-[#7D7D72] mt-1">
+                Nenhuma solicitação pendente de análise no momento.
+              </p>
+            </div>
+          ) : (
+            prioritizedQueue.map((req) => (
+              <MobileProtocolCard
+                key={req.id}
+                request={req}
+                currentUser={currentUser}
+                onSelectRequest={onOpenDetails}
+                onOpenDecisionModal={onOpenDecision}
+                isQueueView={true}
+              />
+            ))
+          )}
+        </div>
+      ) : (
+        /* Queue Table */
+        <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] overflow-hidden">
         <div className="overflow-x-auto touch-scroll">
           <table className="w-full text-left text-xs border-collapse min-w-[900px]">
             <thead>
@@ -342,6 +417,7 @@ export const DENFQueueView: React.FC<DENFQueueViewProps> = ({
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 };

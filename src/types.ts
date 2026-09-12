@@ -323,6 +323,13 @@ export interface SystemAlert {
   severity: 'info' | 'warning' | 'critical';
   timestamp: string;
   read: boolean;
+  targetRole?: 'solicitante' | 'denf' | 'coordenador' | 'admin' | 'all';
+  targetSector?: string;
+  type?: 'deliberation' | 'displacement' | 'arrival' | 'critical_new' | 'contingency' | 'general';
+  professionalName?: string;
+  etaMinutes?: number;
+  originSector?: string;
+  destinationSector?: string;
 }
 
 export interface SystemSettings {
@@ -358,3 +365,38 @@ export interface SystemSettings {
   absenceReasons: { key: AbsenceReason; label: string }[];
   conductOptions: { key: DENFConduct; label: string }[];
 }
+
+/**
+ * Filters whether a system alert is relevant to a specific user based on role and sector
+ */
+export const isAlertRelevantToUser = (alert: SystemAlert, user: User): boolean => {
+  if (!alert.targetRole || alert.targetRole === 'all') {
+    return true;
+  }
+
+  // Solicitante (Enfermeiro de Plantão) only receives station alerts for their sector
+  if (user.role === 'solicitante') {
+    if (alert.targetRole !== 'solicitante') return false;
+    if (alert.targetSector && user.sector) {
+      return alert.targetSector.trim().toLowerCase() === user.sector.trim().toLowerCase();
+    }
+    return true;
+  }
+
+  // DENF receives management and queue alerts (e.g. new critical requests)
+  if (user.role === 'denf') {
+    return alert.targetRole === 'denf';
+  }
+
+  // Coordenador receives coordination and DENF alerts
+  if (user.role === 'coordenador') {
+    return alert.targetRole === 'coordenador' || alert.targetRole === 'denf';
+  }
+
+  // Admin has supervisor visibility
+  if (user.role === 'admin') {
+    return true;
+  }
+
+  return false;
+};

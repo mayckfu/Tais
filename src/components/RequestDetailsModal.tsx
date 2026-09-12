@@ -64,43 +64,44 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
   const isEnfermeiroDePlantao = currentUser.role === 'solicitante';
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-6 overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[92vh] animate-in zoom-in-95">
         {/* Modal Header (Section 23) */}
-        <div className="bg-slate-900 text-white p-5 sm:p-6 shrink-0 border-b border-slate-800">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+        <div className="bg-slate-900 text-white p-4 sm:p-6 shrink-0 border-b border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-xs font-bold text-teal-300 bg-teal-950/80 px-2 py-0.5 rounded border border-teal-800">
+                <span className="font-mono text-xs font-bold text-teal-300 bg-teal-950/80 px-2 py-0.5 rounded border border-teal-800 shrink-0">
                   {request.protocol}
                 </span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-400 whitespace-nowrap">
                   {request.requestDate} às {request.requestTime}
                 </span>
                 <PriorityScoreBadge score={request.priorityScore} level={request.priorityLevel} />
               </div>
-              <h2 className="text-xl font-black tracking-tight mt-1 text-white">
+              <h2 className="text-lg sm:text-xl font-black tracking-tight text-white break-words">
                 {request.solicitorSector} — Déficit de {request.absentQuantity}x {request.absentCategory}
               </h2>
-              <p className="text-xs text-slate-300 mt-0.5">
+              <p className="text-xs text-slate-300 break-words">
                 Solicitado por <strong>{request.solicitorName}</strong> ({request.solicitorRole})
               </p>
             </div>
 
             {/* Badges & Close */}
-            <div className="flex items-center gap-2">
-              <div className="text-right space-y-1">
-                <div className="flex items-center gap-1.5 justify-end">
+            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
+              <div className="text-left sm:text-right space-y-1">
+                <div className="flex items-center gap-1.5 flex-wrap sm:justify-end">
                   <CriticalityBadge criticality={request.criticality} />
                   <RequestStatusBadge status={request.status} />
                 </div>
-                <div className="text-[11px] text-slate-400">
+                <div className="text-[11px] text-slate-400 whitespace-nowrap">
                   Plantão: <strong>{request.affectedShift}</strong> ({request.deficitStartTime})
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-bold text-sm ml-2"
+                aria-label="Fechar Detalhes"
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center font-bold text-sm shrink-0 ml-1 transition-colors"
               >
                 ✕
               </button>
@@ -212,7 +213,7 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
         </div>
 
         {/* Tab Contents */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-4 text-xs">
+        <div className="p-3 sm:p-6 overflow-y-auto flex-1 space-y-4 text-xs">
           {/* TAB 1: RESUMO */}
           {activeTab === 'resumo' && (
             <div className="space-y-4">

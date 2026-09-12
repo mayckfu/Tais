@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { DeficitRequest } from '../types';
+import { usePlatform } from '../hooks/usePlatform';
 import {
   BarChart3,
   TrendingUp,
@@ -10,6 +11,7 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   Activity,
+  Smartphone,
 } from 'lucide-react';
 
 interface IndicatorsViewProps {
@@ -17,6 +19,7 @@ interface IndicatorsViewProps {
 }
 
 export const IndicatorsView: React.FC<IndicatorsViewProps> = ({ requests }) => {
+  const { isMobile, detectedType, platformMode } = usePlatform();
   const [selectedShift, setSelectedShift] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -161,6 +164,12 @@ export const IndicatorsView: React.FC<IndicatorsViewProps> = ({ requests }) => {
             <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-teal-100 text-teal-800 border border-teal-200">
               Gestão de Qualidade & Produtividade
             </span>
+            {isMobile && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E8E6D9] text-[#5A5A40] border border-[#D5D3C5]">
+                <Smartphone className="w-3 h-3" />
+                Gráficos em Modo Mobile
+              </span>
+            )}
           </div>
           <h2 className="text-xl font-extrabold text-slate-900 mt-1">
             Indicadores Estratégicos & Eficiência Operacional

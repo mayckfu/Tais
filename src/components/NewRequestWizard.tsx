@@ -28,6 +28,9 @@ import {
   ArrowRight,
   Building,
   RotateCcw,
+  Lock,
+  Shield,
+  UserCheck,
 } from 'lucide-react';
 import { CriticalityBadge, ClassificationBadge } from './StatusBadge';
 
@@ -35,9 +38,10 @@ interface NewRequestWizardProps {
   currentUser: User;
   settings: SystemSettings;
   existingRequests: DeficitRequest[];
-  onSaveRequest: (newReq: DeficitRequest) => void;
+  onSaveRequest?: (newReq: DeficitRequest) => void;
+  onCreateRequest?: (newReq: DeficitRequest) => void;
   onCancel: () => void;
-  onNavigateToRequest: (reqId: string) => void;
+  onNavigateToRequest?: (reqId: string) => void;
 }
 
 export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
@@ -45,6 +49,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
   settings,
   existingRequests,
   onSaveRequest,
+  onCreateRequest,
   onCancel,
   onNavigateToRequest,
 }) => {
@@ -53,6 +58,13 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const totalSteps = 8;
+
+  // Verificação de bloqueio ao perfil da pessoa (Enfermeiro / Solicitante de Plantão)
+  const isNurse =
+    currentUser.role === 'solicitante' ||
+    Boolean(currentUser.roleTitle?.toLowerCase().includes('enfermeir'));
+  const isSectorLocked =
+    isNurse || (currentUser.role !== 'denf' && currentUser.role !== 'admin');
 
   // Etapa 1: Identificação
   const [requestDate, setRequestDate] = useState<string>(today);
@@ -63,13 +75,29 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
   const [solicitorSectorCustom, setSolicitorSectorCustom] = useState<string>('');
   const [solicitorName, setSolicitorName] = useState<string>(currentUser.name);
   const [solicitorRole, setSolicitorRole] = useState<string>(
-    currentUser.role === 'coordenador'
-      ? 'Coordenador'
-      : currentUser.role === 'denf'
-      ? 'Gestor'
-      : 'Enfermeiro'
+    currentUser.roleTitle ||
+      (currentUser.role === 'coordenador'
+        ? 'Coordenador'
+        : currentUser.role === 'denf'
+        ? 'Gestor'
+        : 'Enfermeiro')
   );
   const [solicitorRoleCustom, setSolicitorRoleCustom] = useState<string>('');
+
+  // Sincronização automática e contínua com o perfil logado
+  useEffect(() => {
+    if (isSectorLocked) {
+      setSolicitorSector(currentUser.sector || 'UTI');
+      setSolicitorSectorCustom('');
+      setSolicitorName(currentUser.name);
+      setSolicitorRole(
+        currentUser.roleTitle ||
+          (currentUser.role === 'coordenador' ? 'Coordenador' : 'Enfermeiro')
+      );
+      setSolicitorRoleCustom('');
+      setDestinationSector(currentUser.sector || 'UTI');
+    }
+  }, [currentUser, isSectorLocked]);
 
   // Etapa 2: Caracterização do Déficit
   const [absentCategory, setAbsentCategory] = useState<string>('Técnico de enfermagem');
@@ -262,8 +290,17 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
   };
 
   const handleSubmit = () => {
-    const finalSector = solicitorSector === 'Outro' ? solicitorSectorCustom : solicitorSector;
+    const finalSector = isSectorLocked
+      ? (currentUser.sector || 'UTI')
+      : (solicitorSector === 'Outro' ? solicitorSectorCustom : solicitorSector);
     const finalCategory = absentCategory === 'Outro' ? absentCategoryCustom : absentCategory;
+    const finalName = isSectorLocked ? currentUser.name : solicitorName;
+    const finalRole = isSectorLocked
+      ? (currentUser.roleTitle || (currentUser.role === 'coordenador' ? 'Coordenador' : 'Enfermeiro'))
+      : (solicitorRole === 'Outro' ? solicitorRoleCustom : solicitorRole);
+    const finalDestination = isSectorLocked
+      ? (currentUser.sector || 'UTI')
+      : destinationSector;
     const protocol = generateProtocol(existingRequests);
 
     const { score, level } = calculatePriorityScore(
@@ -283,10 +320,10 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
       requestDate,
       requestTime,
       solicitorSector: finalSector,
-      solicitorSectorCustom: solicitorSector === 'Outro' ? solicitorSectorCustom : undefined,
-      solicitorName,
-      solicitorRole,
-      solicitorRoleCustom: solicitorRole === 'Outro' ? solicitorRoleCustom : undefined,
+      solicitorSectorCustom: (!isSectorLocked && solicitorSector === 'Outro') ? solicitorSectorCustom : undefined,
+      solicitorName: finalName,
+      solicitorRole: finalRole,
+      solicitorRoleCustom: (!isSectorLocked && solicitorRole === 'Outro') ? solicitorRoleCustom : undefined,
       solicitorUserId: currentUser.id,
       absentCategory: finalCategory,
       absentCategoryCustom: absentCategory === 'Outro' ? absentCategoryCustom : undefined,
@@ -313,7 +350,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
       needsRelocation,
       requestedRelocationQuantity: needsRelocation ? requestedRelocationQuantity : undefined,
       requestedCategory: needsRelocation ? requestedCategory : undefined,
-      destinationSector: needsRelocation ? destinationSector : undefined,
+      destinationSector: needsRelocation ? finalDestination : undefined,
       coverageStartTime: needsRelocation ? coverageStartTime : undefined,
       coverageEndTime: needsRelocation ? coverageEndTime : undefined,
       estimatedRelocationDuration: needsRelocation ? estimatedRelocationDuration : undefined,
@@ -325,8 +362,8 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
           id: `tl-${Date.now()}-1`,
           timestamp: requestTime,
           title: 'Solicitação criada',
-          description: `Registrada por ${solicitorName} (${solicitorRole}) para o setor ${finalSector}.`,
-          user: solicitorName,
+          description: `Registrada por ${finalName} (${finalRole}) para o setor ${finalSector}.`,
+          user: finalName,
           type: 'create',
         },
         {
@@ -334,7 +371,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
           timestamp: requestTime,
           title: 'Solicitação enviada para análise da DENF',
           description: `Classificação: ${classification.toUpperCase()} | Criticidade: ${criticality.toUpperCase()}.`,
-          user: solicitorName,
+          user: finalName,
           type: 'status',
         },
       ],
@@ -351,7 +388,10 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
       ],
     };
 
-    onSaveRequest(newRequest);
+    const submitFn = onSaveRequest || onCreateRequest;
+    if (submitFn) {
+      submitFn(newRequest);
+    }
   };
 
   const stepsLabels = [
@@ -482,12 +522,56 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
             <div id="step-1-container" className="space-y-5 animate-in fade-in">
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                  <Building className="w-5 h-5 text-teal-600" />
+                  <Building className="w-5 h-5 text-[#5A5A40]" />
                   Etapa 1 — Identificação da Solicitação
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Informações da unidade solicitante e do responsável pela comunicação.
                 </p>
+              </div>
+
+              {/* CARD DE VINCULAÇÃO E BLOQUEIO DE PERFIL AUTENTICADO */}
+              <div className="p-3.5 sm:p-4 rounded-xl bg-[#F9F7F2] border border-[#8C9C82]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[#5A5A40] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                    {currentUser.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-[#2D2D2A] text-sm truncate">
+                        {currentUser.name}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-[#5A5A40] bg-white px-2 py-0.5 rounded border border-[#E8E6D9]">
+                        {currentUser.registrationNumber || 'COREN'}
+                      </span>
+                      {isSectorLocked ? (
+                        <span className="text-[10px] font-bold text-[#3E4D36] bg-[#8C9C82]/20 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Lock className="w-3 h-3 text-[#5A6D50]" />
+                          Perfil Locado
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded flex items-center gap-1 border border-teal-200">
+                          <Shield className="w-3 h-3 text-teal-600" />
+                          Acesso Institucional DENF
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[#7D7D72] mt-0.5">
+                      Lotação: <strong className="text-[#2D2D2A]">{currentUser.sector}</strong> • Função:{' '}
+                      <strong className="text-[#2D2D2A]">
+                        {currentUser.roleTitle || 'Enfermeiro de Plantão'}
+                      </strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="text-[11px] text-[#7D7D72] bg-white px-3 py-1.5 rounded-lg border border-[#E8E6D9] shrink-0 flex items-center gap-1.5 self-start sm:self-auto">
+                  <Lock className="w-3.5 h-3.5 text-[#5A6D50]" />
+                  <span>
+                    {isSectorLocked
+                      ? 'Campos travados ao perfil do plantonista'
+                      : 'Emissão institucional autorizada'}
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -523,85 +607,177 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* SETOR SOLICITANTE: BLOQUEADO PARA ENFERMEIRO / SOLICITANTE */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Setor Solicitante *
-                  </label>
-                  <select
-                    value={solicitorSector}
-                    onChange={(e) => setSolicitorSector(e.target.value)}
-                    className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
-                  >
-                    {settings.sectors.map((sec) => (
-                      <option key={sec} value={sec}>
-                        {sec}
-                      </option>
-                    ))}
-                    <option value="Outro">Outro (especificar)</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Setor Solicitante *
+                    </label>
+                    {isSectorLocked && (
+                      <span className="text-[10px] text-[#5A6D50] font-bold flex items-center gap-1 bg-[#8C9C82]/15 px-2 py-0.5 rounded">
+                        <Lock className="w-3 h-3" /> Bloqueado ao seu setor
+                      </span>
+                    )}
+                  </div>
 
-                  {solicitorSector === 'Outro' && (
-                    <div className="mt-2">
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                        Informe o setor *
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Nome do setor não listado"
-                        value={solicitorSectorCustom}
-                        onChange={(e) => setSolicitorSectorCustom(e.target.value)}
-                        className="w-full text-xs p-2 rounded-lg border border-amber-300 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-                      />
+                  {isSectorLocked ? (
+                    <div>
+                      <div className="w-full p-2.5 rounded-lg bg-slate-100 border border-slate-300 text-slate-800 flex items-center justify-between shadow-xs">
+                        <div className="flex items-center gap-2">
+                          <Building className="w-4 h-4 text-[#5A5A40] shrink-0" />
+                          <span className="font-bold text-xs sm:text-sm text-[#2D2D2A]">
+                            {currentUser.sector || 'UTI'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] sm:text-[11px] font-semibold text-[#5A5A40] bg-white px-2 sm:px-2.5 py-0.5 rounded border border-slate-200">
+                          Sua Lotação Ativa
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Como plantonista autenticado(a), o registro de ocorrência está fixado exclusivamente no seu setor (<strong>{currentUser.sector}</strong>), impedindo abertura indevida em nome de outras unidades.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <select
+                        value={solicitorSector}
+                        onChange={(e) => setSolicitorSector(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                      >
+                        {settings.sectors.map((sec) => (
+                          <option key={sec} value={sec}>
+                            {sec}
+                          </option>
+                        ))}
+                        <option value="Outro">Outro (especificar)</option>
+                      </select>
+
+                      {solicitorSector === 'Outro' && (
+                        <div className="mt-2">
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                            Informe o setor *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Nome do setor não listado"
+                            value={solicitorSectorCustom}
+                            onChange={(e) => setSolicitorSectorCustom(e.target.value)}
+                            className="w-full text-xs p-2 rounded-lg border border-amber-300 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                          />
+                        </div>
+                      )}
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Acesso institucional: selecione o setor hospitalar para o qual registrará o déficit.
+                      </span>
                     </div>
                   )}
                 </div>
 
+                {/* RESPONSÁVEL PELA SOLICITAÇÃO */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Responsável pela Solicitação *
-                  </label>
-                  <input
-                    type="text"
-                    value={solicitorName}
-                    onChange={(e) => setSolicitorName(e.target.value)}
-                    className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
-                  />
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    Preenchido automaticamente com o usuário autenticado.
-                  </span>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Responsável pela Solicitação *
+                    </label>
+                    {isSectorLocked && (
+                      <span className="text-[10px] text-[#5A6D50] font-bold flex items-center gap-1 bg-[#8C9C82]/15 px-2 py-0.5 rounded">
+                        <Lock className="w-3 h-3" /> Autenticado
+                      </span>
+                    )}
+                  </div>
+
+                  {isSectorLocked ? (
+                    <div>
+                      <div className="w-full p-2.5 rounded-lg bg-slate-100 border border-slate-300 text-slate-800 flex items-center justify-between shadow-xs">
+                        <span className="font-bold text-xs sm:text-sm text-[#2D2D2A] truncate">
+                          {currentUser.name}
+                        </span>
+                        <span className="text-[10px] sm:text-[11px] font-mono text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200 shrink-0">
+                          {currentUser.registrationNumber || 'COREN ATIVO'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Identificação nominal extraída do login seguro de plantão.
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="text"
+                        value={solicitorName}
+                        onChange={(e) => setSolicitorName(e.target.value)}
+                        className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Preenchido automaticamente com o usuário autenticado.
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* CARGO / FUNÇÃO DO SOLICITANTE */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Cargo / Função do Solicitante *
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                  {['Enfermeiro', 'Coordenador', 'Supervisor', 'Gestor', 'Outro'].map((roleOpt) => (
-                    <button
-                      key={roleOpt}
-                      type="button"
-                      onClick={() => setSolicitorRole(roleOpt)}
-                      className={`p-2 rounded-lg text-xs font-medium border transition-all text-center ${
-                        solicitorRole === roleOpt
-                          ? 'bg-teal-50 border-teal-500 text-teal-900 font-bold shadow-xs'
-                          : 'border-slate-200 hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      {roleOpt}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Cargo / Função do Solicitante *
+                  </label>
+                  {isSectorLocked && (
+                    <span className="text-[10px] text-[#5A6D50] font-bold flex items-center gap-1 bg-[#8C9C82]/15 px-2 py-0.5 rounded">
+                      <Lock className="w-3 h-3" /> Perfil Locado
+                    </span>
+                  )}
                 </div>
 
-                {solicitorRole === 'Outro' && (
-                  <div className="mt-2">
-                    <input
-                      type="text"
-                      placeholder="Especifique o cargo / função"
-                      value={solicitorRoleCustom}
-                      onChange={(e) => setSolicitorRoleCustom(e.target.value)}
-                      className="w-full text-xs p-2 rounded-lg border border-amber-300 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-                    />
+                {isSectorLocked ? (
+                  <div className="p-3 rounded-lg bg-slate-100 border border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs sm:text-sm text-[#2D2D2A]">
+                          {currentUser.roleTitle || 'Enfermeiro de Plantão'}
+                        </span>
+                        <span className="text-[10px] font-semibold text-[#3E4D36] bg-[#8C9C82]/20 px-2 py-0.5 rounded">
+                          {currentUser.role === 'coordenador' ? 'Coordenação' : 'Enfermagem Assistencial'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Cargo e atribuição vinculados diretamente à sua credencial institucional ativa no sistema.
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-600 bg-white px-2.5 py-1 rounded-md border border-slate-200 shrink-0 self-start sm:self-auto">
+                      {currentUser.registrationNumber || 'COREN'}
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {['Enfermeiro', 'Coordenador', 'Supervisor', 'Gestor', 'Outro'].map((roleOpt) => (
+                        <button
+                          key={roleOpt}
+                          type="button"
+                          onClick={() => setSolicitorRole(roleOpt)}
+                          className={`p-2 rounded-lg text-xs font-medium border transition-all text-center ${
+                            solicitorRole === roleOpt
+                              ? 'bg-teal-50 border-teal-500 text-teal-900 font-bold shadow-xs'
+                              : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          {roleOpt}
+                        </button>
+                      ))}
+                    </div>
+
+                    {solicitorRole === 'Outro' && (
+                      <div className="mt-2">
+                        <input
+                          type="text"
+                          placeholder="Especifique o cargo / função"
+                          value={solicitorRoleCustom}
+                          onChange={(e) => setSolicitorRoleCustom(e.target.value)}
+                          className="w-full text-xs p-2 rounded-lg border border-amber-300 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1302,23 +1478,52 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Para qual setor o profissional será remanejado (Destino)? *
-                    </label>
-                    <select
-                      value={destinationSector}
-                      onChange={(e) => setDestinationSector(e.target.value)}
-                      className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
-                    >
-                      {settings.sectors.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="text-[10px] text-slate-400 mt-1 block">
-                      Preenchido preferencialmente com o setor solicitante.
-                    </span>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-700">
+                        Para qual setor o profissional será remanejado (Destino)? *
+                      </label>
+                      {isSectorLocked && (
+                        <span className="text-[10px] text-[#5A6D50] font-bold flex items-center gap-1 bg-[#8C9C82]/15 px-2 py-0.5 rounded">
+                          <Lock className="w-3 h-3" /> Seu Setor
+                        </span>
+                      )}
+                    </div>
+
+                    {isSectorLocked ? (
+                      <div>
+                        <div className="w-full p-2.5 rounded-lg bg-slate-100 border border-slate-300 text-slate-800 flex items-center justify-between shadow-xs">
+                          <div className="flex items-center gap-2">
+                            <Building className="w-4 h-4 text-[#5A5A40] shrink-0" />
+                            <span className="font-bold text-xs sm:text-sm text-[#2D2D2A]">
+                              {currentUser.sector || 'UTI'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] sm:text-[11px] font-semibold text-[#5A5A40] bg-white px-2.5 py-0.5 rounded border border-slate-200">
+                            Destino Obrigatório (Sua Unidade)
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 mt-1 block">
+                          O profissional de cobertura virá socorrer o déficit da sua unidade assistencial (<strong>{currentUser.sector}</strong>).
+                        </span>
+                      </div>
+                    ) : (
+                      <div>
+                        <select
+                          value={destinationSector}
+                          onChange={(e) => setDestinationSector(e.target.value)}
+                          className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
+                        >
+                          {settings.sectors.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[10px] text-slate-400 mt-1 block">
+                          Preenchido preferencialmente com o setor solicitante.
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1441,35 +1646,36 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
             </div>
 
             {/* Summary Data */}
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto text-xs">
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div className="p-4 sm:p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Setor Solicitante</span>
-                  <span className="font-bold text-slate-800 text-sm">
-                    {solicitorSector === 'Outro' ? solicitorSectorCustom : solicitorSector}
+                  <span className="font-bold text-slate-800 text-sm break-words flex items-center gap-1.5">
+                    {isSectorLocked && <Lock className="w-3.5 h-3.5 text-[#5A6D50]" />}
+                    {isSectorLocked ? currentUser.sector : (solicitorSector === 'Outro' ? solicitorSectorCustom : solicitorSector)}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Responsável</span>
-                  <span className="font-bold text-slate-800">
-                    {solicitorName} ({solicitorRole})
+                  <span className="font-bold text-slate-800 break-words">
+                    {isSectorLocked ? currentUser.name : solicitorName} ({isSectorLocked ? (currentUser.roleTitle || 'Enfermeiro') : solicitorRole})
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Profissional Ausente</span>
-                  <span className="font-bold text-slate-800">
+                  <span className="font-bold text-slate-800 break-words">
                     {absentQuantity}x {absentCategory === 'Outro' ? absentCategoryCustom : absentCategory}
                   </span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Plantão Afetado</span>
-                  <span className="font-bold text-slate-800">
+                  <span className="font-bold text-slate-800 break-words">
                     {affectedShiftDate} ({affectedShift}) às {deficitStartTime}
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Classificação</span>
                   <div className="mt-1">
@@ -1486,7 +1692,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
 
               <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                 <span className="text-slate-400 block text-[10px] uppercase font-bold">Motivo da Ausência</span>
-                <span className="font-semibold text-slate-800 mt-0.5 block">
+                <span className="font-semibold text-slate-800 mt-0.5 block break-words">
                   {absenceReason === 'outro' ? absenceReasonCustom : absenceReason.replace('_', ' ').toUpperCase()}
                 </span>
               </div>
@@ -1497,7 +1703,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
                   {hasInternalAttempt ? 'Sim, tentativas realizadas' : 'Não foram realizadas tentativas'}
                 </p>
                 {internalFailureReason && (
-                  <p className="text-slate-600 mt-1 italic">
+                  <p className="text-slate-600 mt-1 italic break-words">
                     "{internalFailureReason}"
                   </p>
                 )}
@@ -1508,14 +1714,16 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
                   <span className="text-teal-900 block text-[11px] uppercase font-bold">
                     Remanejamento Solicitado
                   </span>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <span className="text-[10px] text-teal-700">Qtd Solicitada</span>
                       <p className="font-extrabold text-teal-950 text-sm">{requestedRelocationQuantity} profissional(is)</p>
                     </div>
                     <div>
                       <span className="text-[10px] text-teal-700">Setor Destino</span>
-                      <p className="font-extrabold text-teal-950 text-sm">{destinationSector}</p>
+                      <p className="font-extrabold text-teal-950 text-sm break-words">
+                        {isSectorLocked ? currentUser.sector : destinationSector}
+                      </p>
                     </div>
                     <div>
                       <span className="text-[10px] text-teal-700">Horário Cobertura</span>

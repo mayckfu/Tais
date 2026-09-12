@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { User, SystemAlert } from '../types';
+import { User, SystemAlert, isAlertRelevantToUser } from '../types';
+import { usePlatform } from '../hooks/usePlatform';
 import {
   Bell,
   Building2,
@@ -11,6 +12,9 @@ import {
   Flame,
   Info,
   Menu,
+  Smartphone,
+  Monitor,
+  Sparkles,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -18,6 +22,7 @@ interface NavbarProps {
   allUsers: User[];
   alerts: SystemAlert[];
   onSelectUser: (user: User) => void;
+  onSwitchUser?: (user: User) => void;
   onOpenAlerts: () => void;
   onNavigateToRequest?: (requestId: string) => void;
   onToggleMobileMenu?: () => void;
@@ -28,11 +33,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   allUsers,
   alerts,
   onSelectUser,
+  onSwitchUser,
   onOpenAlerts,
   onToggleMobileMenu,
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const unreadAlerts = alerts.filter((a) => !a.read);
+  const [showPlatformMenu, setShowPlatformMenu] = useState(false);
+  const userAlerts = alerts.filter((a) => isAlertRelevantToUser(a, currentUser));
+  const unreadAlerts = userAlerts.filter((a) => !a.read);
+  const { isMobile, detectedType, platformMode, setPlatformMode } = usePlatform();
+
+  const handleUserSelect = onSelectUser || onSwitchUser;
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -110,8 +121,129 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Right Controls: Notifications & Profile Switcher */}
+          {/* Right Controls: Platform Indicator, Notifications & Profile Switcher */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Automatic Platform Recognition Indicator */}
+            <div className="relative">
+              <button
+                id="btn-platform-mode-selector"
+                onClick={() => setShowPlatformMenu(!showPlatformMenu)}
+                className={`px-2.5 py-1.5 rounded-full text-xs font-bold border transition-all flex items-center gap-1.5 shadow-xs ${
+                  isMobile
+                    ? 'bg-[#E8E6D9]/90 text-[#5A5A40] border-[#8C9C82]/60 ring-1 ring-[#8C9C82]/30'
+                    : 'bg-[#F9F7F2] text-[#7D7D72] border-[#E8E6D9] hover:text-[#2D2D2A]'
+                }`}
+                title="Detecção Automática de Plataforma (Mobile / Desktop)"
+              >
+                {isMobile ? (
+                  <Smartphone className="w-3.5 h-3.5 text-[#5A5A40]" />
+                ) : (
+                  <Monitor className="w-3.5 h-3.5 text-[#7D7D72]" />
+                )}
+                <span className="hidden sm:inline">
+                  {platformMode === 'auto'
+                    ? `Auto: ${isMobile ? 'Mobile' : 'Desktop'}`
+                    : platformMode === 'mobile'
+                    ? 'Mobile (Forçado)'
+                    : 'Desktop (Forçado)'}
+                </span>
+                <span className="sm:hidden text-[10px]">
+                  {isMobile ? 'Mobile' : 'PC'}
+                </span>
+                <ChevronDown className="w-3 h-3 opacity-60" />
+              </button>
+
+              {/* Platform Dropdown */}
+              {showPlatformMenu && (
+                <div
+                  id="platform-mode-dropdown"
+                  className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-[#E8E6D9] p-3 z-50 animate-in fade-in slide-in-from-top-2 text-xs"
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E8E6D9]">
+                    <span className="font-bold text-[#2D2D2A] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-[#8C9C82]" />
+                      Plataforma & Interface
+                    </span>
+                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-[#F9F7F2] text-[#7D7D72] border border-[#E8E6D9]">
+                      {detectedType}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[#7D7D72] mt-2 mb-3">
+                    O sistema adapta automaticamente os gráficos e cartões de protocolo ao dispositivo detectado.
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <button
+                      onClick={() => {
+                        setPlatformMode('auto');
+                        setShowPlatformMenu(false);
+                      }}
+                      className={`w-full text-left p-2 rounded-xl flex items-center justify-between border transition-all ${
+                        platformMode === 'auto'
+                          ? 'bg-[#5A5A40] text-white border-[#4A4A35] font-bold'
+                          : 'bg-[#F9F7F2] text-[#2D2D2A] border-[#E8E6D9] hover:bg-[#E8E6D9]'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-bold">Automático (Padrão)</div>
+                        <div className={`text-[10px] ${platformMode === 'auto' ? 'text-white/80' : 'text-[#7D7D72]'}`}>
+                          Detecta tela ({detectedType})
+                        </div>
+                      </div>
+                      {platformMode === 'auto' && <Check className="w-4 h-4" />}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setPlatformMode('mobile');
+                        setShowPlatformMenu(false);
+                      }}
+                      className={`w-full text-left p-2 rounded-xl flex items-center justify-between border transition-all ${
+                        platformMode === 'mobile'
+                          ? 'bg-[#5A5A40] text-white border-[#4A4A35] font-bold'
+                          : 'bg-[#F9F7F2] text-[#2D2D2A] border-[#E8E6D9] hover:bg-[#E8E6D9]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4" />
+                        <div>
+                          <div className="font-bold">Forçar Modo Mobile</div>
+                          <div className={`text-[10px] ${platformMode === 'mobile' ? 'text-white/80' : 'text-[#7D7D72]'}`}>
+                            Cartões de protocolo & gráficos verticais
+                          </div>
+                        </div>
+                      </div>
+                      {platformMode === 'mobile' && <Check className="w-4 h-4" />}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setPlatformMode('desktop');
+                        setShowPlatformMenu(false);
+                      }}
+                      className={`w-full text-left p-2 rounded-xl flex items-center justify-between border transition-all ${
+                        platformMode === 'desktop'
+                          ? 'bg-[#5A5A40] text-white border-[#4A4A35] font-bold'
+                          : 'bg-[#F9F7F2] text-[#2D2D2A] border-[#E8E6D9] hover:bg-[#E8E6D9]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Monitor className="w-4 h-4" />
+                        <div>
+                          <div className="font-bold">Forçar Modo Desktop</div>
+                          <div className={`text-[10px] ${platformMode === 'desktop' ? 'text-white/80' : 'text-[#7D7D72]'}`}>
+                            Tabelas completas & matriz em colunas
+                          </div>
+                        </div>
+                      </div>
+                      {platformMode === 'desktop' && <Check className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Notification Bell */}
             <button
               id="btn-open-notifications"

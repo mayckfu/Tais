@@ -7,6 +7,7 @@ import {
   SystemAlert,
   RelocationStatus,
   RelocationMovement,
+  isAlertRelevantToUser,
 } from './types';
 import {
   getStoredRequests,
@@ -45,6 +46,14 @@ import { ImpactModal } from './components/ImpactModal';
 import { ClosureModal } from './components/ClosureModal';
 import { CancelModal } from './components/CancelModal';
 import { ArrivalConfirmationModal } from './components/ArrivalConfirmationModal';
+import { FloatingAlertBanner } from './components/FloatingAlertBanner';
+import { NotificationCenterModal } from './components/NotificationCenterModal';
+import {
+  triggerFullAlert,
+  playHospitalChime,
+  triggerHapticAlert,
+  sendNativePushNotification,
+} from './services/soundEngine';
 
 export type NavigationTab =
   | 'dashboard'
@@ -79,6 +88,10 @@ export default function App() {
     relocation: RelocationMovement;
     request?: DeficitRequest;
   } | null>(null);
+
+  // Push & sound notification states for duty nurse & hospital personnel
+  const [activeFloatingAlert, setActiveFloatingAlert] = useState<SystemAlert | null>(null);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
   // Responsive mobile drawer state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -139,17 +152,32 @@ export default function App() {
 
     // Create system alert for DENF if critical or emergency
     if (newRequest.criticality === 'critica' || newRequest.classification === 'emergencial') {
+      const nowTime = new Date().toTimeString().slice(0, 5);
       const newAlert: SystemAlert = {
         id: `alert-${Date.now()}`,
         requestId: newRequest.id,
         protocol: newRequest.protocol,
         title: `NOVO DÉFICIT CRÍTICO: ${newRequest.solicitorSector}`,
-        message: `${newRequest.absentQuantity}x ${newRequest.absentCategory} ausente no plantão ${newRequest.affectedShift}.`,
+        message: `${newRequest.absentQuantity}x ${newRequest.absentCategory} ausente no plantão ${newRequest.affectedShift}. Risco assistencial iminente!`,
         severity: 'critical',
-        timestamp: new Date().toTimeString().slice(0, 5),
+        timestamp: nowTime,
         read: false,
+        targetRole: 'denf',
+        targetSector: newRequest.solicitorSector,
+        type: 'critical_new',
       };
       setAlerts((prev) => [newAlert, ...prev]);
+
+      // Only alert active screen if the current user is the target recipient (DENF or Admin)
+      if (isAlertRelevantToUser(newAlert, currentUser)) {
+        setActiveFloatingAlert(newAlert);
+        triggerFullAlert(
+          'urgent',
+          `DÉFICIT CRÍTICO: ${newRequest.solicitorSector}`,
+          `${newRequest.absentQuantity}x ${newRequest.absentCategory} ausente. Avaliação prioritária necessária.`,
+          newRequest.protocol
+        );
+      }
     }
 
     // Navigate to requests or DENF queue
@@ -160,12 +188,139 @@ export default function App() {
     }
   };
 
-  // Update request when decision is registered
+  // Update request when decision is registered by DENF
   const handleSaveDecision = (updatedRequest: DeficitRequest) => {
     setRequests((prev) => prev.map((r) => (r.id === updatedRequest.id ? updatedRequest : r)));
     setDecisionRequest(null);
     if (detailsRequest?.id === updatedRequest.id) {
       setDetailsRequest(updatedRequest);
+    }
+
+    // MULTI-MODAL NURSE NOTIFICATION (Audio Chime + Vibration + Floating Push Banner + Native Notification)
+    const nowTime = new Date().toTimeString().slice(0, 5);
+    const conduct = updatedRequest.denfDecision?.conduct;
+    const isAuthorized =
+      conduct === 'remanejamento_interno' ||
+      conduct === 'redistribuicao_profissionais' ||
+      conduct === 'sobreaviso' ||
+      conduct === 'convocacao';
+    const isDenied = conduct === 'nao_realizado';
+
+    const professionalName =
+      updatedRequest.denfDecision?.nominalProfessionalName ||
+      updatedRequest.relocations[0]?.professionalName ||
+      'Técnico(a) de Enfermagem';
+    const originSector =
+      updatedRequest.denfDecision?.originSector ||
+      updatedRequest.relocations[0]?.originSector ||
+      'Setor Doador';
+
+    let alertTitle = '';
+    let alertMessage = '';
+    let alertSeverity: 'info' | 'warning' | 'critical' = 'info';
+    let alertType: 'deliberation' | 'displacement' | 'contingency' = 'deliberation';
+
+    if (isAuthorized) {
+      alertTitle = 'DENF AUTORIZOU: Profissional em Deslocamento!';
+      alertMessage = `DENF autorizou: ${professionalName} está em deslocamento de ${originSector} para o seu setor (${updatedRequest.solicitorSector}). Previsão de chegada: ~15 min.`;
+      alertSeverity = 'info';
+      alertType = 'displacement';
+
+      const deliberationAlert: SystemAlert = {
+        id: `alert-denf-${Date.now()}`,
+        requestId: updatedRequest.id,
+        protocol: updatedRequest.protocol,
+        title: alertTitle,
+        message: alertMessage,
+        severity: alertSeverity,
+        timestamp: nowTime,
+        read: false,
+        targetRole: 'solicitante',
+        targetSector: updatedRequest.solicitorSector,
+        type: alertType,
+        professionalName,
+        originSector,
+        destinationSector: updatedRequest.solicitorSector,
+        etaMinutes: 15,
+      };
+
+      setAlerts((prev) => [deliberationAlert, ...prev]);
+
+      // Only trigger audible/pop-up alert if active user is the nurse waiting in that sector
+      if (isAlertRelevantToUser(deliberationAlert, currentUser)) {
+        setActiveFloatingAlert(deliberationAlert);
+        triggerFullAlert(
+          'dispatch',
+          'DENF AUTORIZOU REMANEJAMENTO!',
+          alertMessage,
+          updatedRequest.protocol
+        );
+      }
+    } else if (isDenied) {
+      alertTitle = 'DELIBERAÇÃO DENF: Remanejamento Não Autorizado';
+      alertMessage = `DENF analisou o protocolo ${updatedRequest.protocol}: Não foi possível disponibilizar remanejamento por escassez hospitalar geral. Justificativa: ${updatedRequest.denfDecision?.denialJustification || 'Acionar plano de contingência e redistribuição interna de cuidados.'}`;
+      alertSeverity = 'warning';
+      alertType = 'contingency';
+
+      const deliberationAlert: SystemAlert = {
+        id: `alert-denf-${Date.now()}`,
+        requestId: updatedRequest.id,
+        protocol: updatedRequest.protocol,
+        title: alertTitle,
+        message: alertMessage,
+        severity: alertSeverity,
+        timestamp: nowTime,
+        read: false,
+        targetRole: 'solicitante',
+        targetSector: updatedRequest.solicitorSector,
+        type: alertType,
+        destinationSector: updatedRequest.solicitorSector,
+      };
+
+      setAlerts((prev) => [deliberationAlert, ...prev]);
+
+      // Only trigger audible/pop-up alert if active user is the nurse waiting in that sector
+      if (isAlertRelevantToUser(deliberationAlert, currentUser)) {
+        setActiveFloatingAlert(deliberationAlert);
+        triggerFullAlert(
+          'warning',
+          'DELIBERAÇÃO DENF: Não Autorizado',
+          alertMessage,
+          updatedRequest.protocol
+        );
+      }
+    } else {
+      alertTitle = 'DELIBERAÇÃO DENF: Parecer Técnico Registrado';
+      alertMessage = `A DENF deliberou a conduta no protocolo ${updatedRequest.protocol}: ${updatedRequest.denfDecision?.decisionNotes || 'Acompanhar orientações do protocolo assistencial.'}`;
+      alertSeverity = 'info';
+      alertType = 'deliberation';
+
+      const deliberationAlert: SystemAlert = {
+        id: `alert-denf-${Date.now()}`,
+        requestId: updatedRequest.id,
+        protocol: updatedRequest.protocol,
+        title: alertTitle,
+        message: alertMessage,
+        severity: alertSeverity,
+        timestamp: nowTime,
+        read: false,
+        targetRole: 'solicitante',
+        targetSector: updatedRequest.solicitorSector,
+        type: alertType,
+        destinationSector: updatedRequest.solicitorSector,
+      };
+
+      setAlerts((prev) => [deliberationAlert, ...prev]);
+
+      if (isAlertRelevantToUser(deliberationAlert, currentUser)) {
+        setActiveFloatingAlert(deliberationAlert);
+        triggerFullAlert(
+          'info',
+          'PARECER DENF REGISTRADO',
+          alertMessage,
+          updatedRequest.protocol
+        );
+      }
     }
   };
 
@@ -283,6 +438,58 @@ export default function App() {
       })
     );
 
+    // Audio & Visual notification on displacement / arrival
+    const targetReq = requests.find((r) => r.relocations.some((rel) => rel.id === relocationId));
+    const targetRel = targetReq?.relocations.find((rel) => rel.id === relocationId);
+    const profName = targetRel?.professionalName || 'Profissional Remanejado';
+    const destSector = targetRel?.destinationSector || targetReq?.solicitorSector || 'Posto de Enfermagem';
+
+    if (newStatus === 'em_deslocamento') {
+      const dispAlert: SystemAlert = {
+        id: `alert-disp-${Date.now()}`,
+        requestId: targetReq?.id || 'req-disp',
+        protocol: targetReq?.protocol || 'REMANEJAMENTO',
+        title: 'EM DESLOCAMENTO: Profissional a Caminho',
+        message: `${profName} saiu de ${targetRel?.originSector || 'Origem'} e está a caminho do seu posto (${destSector}). Previsão: ~10-15 min.`,
+        severity: 'info',
+        timestamp: nowTime,
+        read: false,
+        targetRole: 'solicitante',
+        targetSector: destSector,
+        type: 'displacement',
+        professionalName: profName,
+        originSector: targetRel?.originSector,
+        destinationSector: destSector,
+        etaMinutes: 12,
+      };
+      setAlerts((prev) => [dispAlert, ...prev]);
+      if (isAlertRelevantToUser(dispAlert, currentUser)) {
+        setActiveFloatingAlert(dispAlert);
+        triggerFullAlert('dispatch', 'PROFISSIONAL A CAMINHO!', dispAlert.message, targetReq?.protocol);
+      }
+    } else if (isArrival) {
+      const arrAlert: SystemAlert = {
+        id: `alert-arr-${Date.now()}`,
+        requestId: targetReq?.id || 'req-arr',
+        protocol: targetReq?.protocol || 'REMANEJAMENTO',
+        title: 'CHEGADA CONFIRMADA NO POSTO!',
+        message: `${profName} apresentou-se no posto (${destSector}) e iniciou cobertura assistencial ativa.`,
+        severity: 'info',
+        timestamp: nowTime,
+        read: false,
+        targetRole: 'all',
+        targetSector: destSector,
+        type: 'arrival',
+        professionalName: profName,
+        destinationSector: destSector,
+      };
+      setAlerts((prev) => [arrAlert, ...prev]);
+      if (isAlertRelevantToUser(arrAlert, currentUser)) {
+        setActiveFloatingAlert(arrAlert);
+        triggerFullAlert('success', 'CHEGADA CONFIRMADA!', arrAlert.message, targetReq?.protocol);
+      }
+    }
+
     setDetailsRequest((prev) => {
       if (!prev) return null;
       const found = prev.relocations.some((rel) => rel.id === relocationId);
@@ -306,6 +513,53 @@ export default function App() {
         ),
       };
     });
+  };
+
+  // Alert management handlers
+  const handleMarkAlertAsRead = (alertId: string) => {
+    setAlerts((prev) => prev.map((a) => (a.id === alertId ? { ...a, read: true } : a)));
+  };
+
+  const handleMarkAllAlertsAsRead = () => {
+    setAlerts((prev) => prev.map((a) => ({ ...a, read: true })));
+  };
+
+  const handleClearReadAlerts = () => {
+    setAlerts((prev) => prev.filter((a) => !a.read));
+  };
+
+  // Instant simulation of DENF deliberation for testing audio, vibration and push banner
+  const handleTriggerSimulatedAlert = () => {
+    const nowTime = new Date().toTimeString().slice(0, 5);
+    const targetSector = currentUser.role === 'solicitante' ? currentUser.sector : 'UTI Adulto';
+    const firstReq = requests[0] || { id: 'req-125', protocol: 'DEF-2026-000125' };
+
+    const simulatedAlert: SystemAlert = {
+      id: `alert-sim-${Date.now()}`,
+      requestId: firstReq.id,
+      protocol: firstReq.protocol,
+      title: 'DENF AUTORIZOU: Profissional em Deslocamento!',
+      message: `A Diretoria de Enfermagem autorizou: Tec. Ana Paula Lima está em deslocamento da Clínica Médica (3º Andar) para o seu setor (${targetSector}). Previsão de chegada: ~15 min.`,
+      severity: 'info',
+      timestamp: nowTime,
+      read: false,
+      targetRole: 'solicitante',
+      targetSector: targetSector,
+      type: 'displacement',
+      professionalName: 'Tec. Ana Paula Lima (COREN-SP 489.120)',
+      originSector: 'Clínica Médica (3º Andar)',
+      destinationSector: targetSector,
+      etaMinutes: 15,
+    };
+
+    setAlerts((prev) => [simulatedAlert, ...prev]);
+    setActiveFloatingAlert(simulatedAlert);
+    triggerFullAlert(
+      'dispatch',
+      'DENF AUTORIZOU REMANEJAMENTO!',
+      `Tec. Ana Paula Lima está a caminho de ${targetSector}. Previsão: 15 min.`,
+      firstReq.protocol
+    );
   };
 
   // Update management follow-up
@@ -357,15 +611,7 @@ export default function App() {
         onSwitchUser={handleSwitchUser}
         onSelectUser={handleSwitchUser}
         alerts={alerts}
-        onOpenAlerts={() => {
-          // Open details of first unread or navigate to denf queue / requests
-          const firstUnread = alerts.find((a) => !a.read);
-          if (firstUnread?.requestId) {
-            handleNavigateToRequest(firstUnread.requestId);
-          } else {
-            setCurrentTab(canAccessDENF ? 'denf_queue' : 'requests');
-          }
-        }}
+        onOpenAlerts={() => setIsNotificationCenterOpen(true)}
         onNavigateToRequest={handleNavigateToRequest}
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
@@ -404,6 +650,9 @@ export default function App() {
               onOpenDecision={setDecisionRequest}
               onOpenClosure={handleOpenClosure}
               onOpenArrivalModal={handleOpenArrivalModal}
+              onOpenNotifications={() => setIsNotificationCenterOpen(true)}
+              onTriggerSimulatedAlert={handleTriggerSimulatedAlert}
+              unreadAlertsCount={alerts.filter((a) => !a.read).length}
             />
           )}
 
@@ -414,6 +663,7 @@ export default function App() {
               settings={settings}
               existingRequests={requests}
               onCreateRequest={handleCreateRequest}
+              onNavigateToRequest={handleNavigateToRequest}
               onCancel={() => setCurrentTab('dashboard')}
             />
           )}
@@ -567,6 +817,44 @@ export default function App() {
           onClose={() => setArrivalModalData(null)}
         />
       )}
+
+      {/* REAL-TIME FLOATING ALERT BANNER (TOP-RIGHT PUSH TOAST) */}
+      <FloatingAlertBanner
+        alert={activeFloatingAlert}
+        onDismiss={() => setActiveFloatingAlert(null)}
+        onOpenRequestDetails={(reqId) => {
+          setActiveFloatingAlert(null);
+          handleNavigateToRequest(reqId);
+        }}
+        onOpenArrivalModal={(req) => {
+          setActiveFloatingAlert(null);
+          const inTransit = req.relocations.find((r) => r.status === 'em_deslocamento') || req.relocations[0];
+          if (inTransit) {
+            handleOpenArrivalModal(inTransit, req);
+          }
+        }}
+        relatedRequest={
+          activeFloatingAlert?.requestId
+            ? requests.find((r) => r.id === activeFloatingAlert.requestId)
+            : undefined
+        }
+      />
+
+      {/* CENTRAL DE NOTIFICAÇÕES & CONFIGURAÇÕES DE ALERTAS MODAL */}
+      <NotificationCenterModal
+        isOpen={isNotificationCenterOpen}
+        onClose={() => setIsNotificationCenterOpen(false)}
+        alerts={alerts}
+        currentUser={currentUser}
+        onMarkAsRead={handleMarkAlertAsRead}
+        onMarkAllAsRead={handleMarkAllAlertsAsRead}
+        onClearReadAlerts={handleClearReadAlerts}
+        onNavigateToRequest={(reqId) => {
+          setIsNotificationCenterOpen(false);
+          handleNavigateToRequest(reqId);
+        }}
+        onTriggerSimulatedAlert={handleTriggerSimulatedAlert}
+      />
     </div>
   );
 }
