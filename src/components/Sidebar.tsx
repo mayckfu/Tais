@@ -168,14 +168,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <div className="flex items-center gap-3">
             <Radio className={`w-4 h-4 shrink-0 ${isTabActive('my_shift') ? 'text-[#D1A661] animate-pulse' : 'text-[#8C9C82]'}`} />
-            <span>Meu Plantão Agora</span>
+            <span>{isEnfermeiro ? 'Meu Plantão Agora' : 'Escala do Plantão'}</span>
           </div>
           <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase ${
             isTabActive('my_shift')
               ? 'bg-[#D1A661] text-[#2D2D2A]'
-              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              : isEnfermeiro
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              : 'bg-blue-100 text-blue-800 border border-blue-200'
           }`}>
-            Ao Vivo
+            {isEnfermeiro ? 'Ao Vivo' : 'Consulta'}
           </span>
         </button>
 

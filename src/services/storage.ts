@@ -10,6 +10,7 @@ import {
   SectorShiftData,
   ShiftStaffMember,
   ShiftPresenceStatus,
+  RegisteredProfessional,
 } from '../types';
 
 export const INITIAL_USERS: User[] = [
@@ -1823,4 +1824,112 @@ export function saveStoredShiftData(data: SectorShiftData): void {
     lastUpdated: new Date().toTimeString().slice(0, 5),
   };
   saveAllStoredShifts(all);
+}
+
+// ==========================================
+// CADASTRO INSTITUCIONAL DE PROFISSIONAIS
+// ==========================================
+
+export const STORAGE_REGISTERED_PROFESSIONALS_KEY = 'hospital_registered_professionals_v1';
+
+export const INITIAL_REGISTERED_PROFESSIONALS: RegisteredProfessional[] = [
+  // UTI
+  { id: 'reg-uti-001', name: 'Enfª. Mariana Costa', category: 'Enfermeiro', registration: 'COREN-142857', defaultRole: 'Enfermeira Líder de Plantão', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-002', name: 'Enf. Felipe Albuquerque', category: 'Enfermeiro', registration: 'COREN-159480', defaultRole: 'Enfermeiro Assistencial Leitos 01 a 05', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-003', name: 'Enfª. Larissa Duarte', category: 'Enfermeiro', registration: 'COREN-178920', defaultRole: 'Enfermeira Assistencial Leitos 06 a 10', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-004', name: 'Téc. Carla Ferreira', category: 'Técnico de enfermagem', registration: 'COREN-84210', defaultRole: 'Técnica de Enfermagem Leitos 01 e 02', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-005', name: 'Téc. Bruno Lopes', category: 'Técnico de enfermagem', registration: 'COREN-91044', defaultRole: 'Técnico de Enfermagem Leitos 03 e 04', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-006', name: 'Téc. Amanda Silveira', category: 'Técnico de enfermagem', registration: 'COREN-78320', defaultRole: 'Técnica de Enfermagem Leitos 05 e 06', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-007', name: 'Téc. Lucas Mendonça', category: 'Técnico de enfermagem', registration: 'COREN-65412', defaultRole: 'Técnico de Enfermagem Leitos 07 e 08', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-008', name: 'Téc. Beatriz Castro', category: 'Técnico de enfermagem', registration: 'COREN-89501', defaultRole: 'Técnica de Enfermagem Leitos 09 e 10', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-009', name: 'Téc. Rodrigo da Silva', category: 'Técnico de enfermagem', registration: 'COREN-72314', defaultRole: 'Técnico Apoio e Procedimentos', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-uti-010', name: 'Téc. Tatiana Mendes', category: 'Técnico de enfermagem', registration: 'COREN-94512', defaultRole: 'Técnica Rotativa / Curativos', sector: 'UTI', defaultHours: '07:00 - 19:00' },
+
+  // Centro Cirúrgico
+  { id: 'reg-cc-001', name: 'Enf. Roberto Almeida', category: 'Enfermeiro', registration: 'COREN-098231', defaultRole: 'Supervisor do Bloco Cirúrgico', sector: 'Centro Cirúrgico', defaultHours: '07:00 - 17:00' },
+  { id: 'reg-cc-002', name: 'Enfª. Camila Nogueira', category: 'Enfermeiro', registration: 'COREN-119830', defaultRole: 'Enfermeira RPA', sector: 'Centro Cirúrgico', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-cc-003', name: 'Téc. Marcelo Silveira', category: 'Técnico de enfermagem', registration: 'COREN-72194', defaultRole: 'Instrumentador / Circulante Sala 1', sector: 'Centro Cirúrgico', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-cc-004', name: 'Téc. Tatiana Borges', category: 'Técnico de enfermagem', registration: 'COREN-81340', defaultRole: 'Circulante Sala 2', sector: 'Centro Cirúrgico', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-cc-005', name: 'Téc. Guilherme Santos', category: 'Técnico de enfermagem', registration: 'COREN-99231', defaultRole: 'Circulante Sala 3 e 4', sector: 'Centro Cirúrgico', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-cc-006', name: 'Téc. Cláudia Valéria', category: 'Técnico de enfermagem', registration: 'COREN-83190', defaultRole: 'Circulante Sala 5', sector: 'Centro Cirúrgico', defaultHours: '07:00 - 19:00' },
+
+  // CLM (Clínica Médica)
+  { id: 'reg-clm-001', name: 'Enfª. Daniela Tavares', category: 'Enfermeiro', registration: 'COREN-134900', defaultRole: 'Enfermeira Responsável CLM', sector: 'CLM', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clm-002', name: 'Enf. Gabriel Siqueira', category: 'Enfermeiro', registration: 'COREN-168230', defaultRole: 'Enfermeiro Assistencial CLM', sector: 'CLM', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clm-003', name: 'Téc. Vanessa Toledo', category: 'Técnico de enfermagem', registration: 'COREN-88319', defaultRole: 'Técnica Ala A (Leitos 1-10)', sector: 'CLM', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clm-004', name: 'Téc. Anderson Costa', category: 'Técnico de enfermagem', registration: 'COREN-74129', defaultRole: 'Técnico Ala B (Leitos 11-20)', sector: 'CLM', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clm-005', name: 'Téc. Sandra Regina', category: 'Técnico de enfermagem', registration: 'COREN-62190', defaultRole: 'Técnica Ala C (Leitos 21-30)', sector: 'CLM', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clm-006', name: 'Téc. Paulo Ricardo', category: 'Técnico de enfermagem', registration: 'COREN-91420', defaultRole: 'Técnico Ala D', sector: 'CLM', defaultHours: '07:00 - 19:00' },
+
+  // CLC (Clínica Cirúrgica)
+  { id: 'reg-clc-001', name: 'Enfª. Camila Ribeiro', category: 'Enfermeiro', registration: 'COREN-162400', defaultRole: 'Enfermeira Assistencial CLC', sector: 'CLC', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clc-002', name: 'Téc. Thiago Rocha', category: 'Técnico de enfermagem', registration: 'COREN-90142', defaultRole: 'Técnico Ala 1', sector: 'CLC', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clc-003', name: 'Téc. Fernanda Lima', category: 'Técnico de enfermagem', registration: 'COREN-83491', defaultRole: 'Técnica Ala 2', sector: 'CLC', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clc-004', name: 'Téc. Diego Souza', category: 'Técnico de enfermagem', registration: 'COREN-71830', defaultRole: 'Técnico Ala 3', sector: 'CLC', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-clc-005', name: 'Téc. Juliana Meireles', category: 'Técnico de enfermagem', registration: 'COREN-85610', defaultRole: 'Técnica Ala 4', sector: 'CLC', defaultHours: '07:00 - 19:00' },
+
+  // Pediatria
+  { id: 'reg-ped-001', name: 'Enfª. Juliana Prado', category: 'Enfermeiro', registration: 'COREN-178450', defaultRole: 'Enfermeira Pediatria', sector: 'Pediatria', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-ped-002', name: 'Téc. Gabriela Martins', category: 'Técnico de enfermagem', registration: 'COREN-92381', defaultRole: 'Técnica Enfermaria Pediátrica', sector: 'Pediatria', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-ped-003', name: 'Téc. Renata Vasconcelos', category: 'Técnico de enfermagem', registration: 'COREN-83190', defaultRole: 'Técnica Lactário e Isolamento', sector: 'Pediatria', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-ped-004', name: 'Téc. Patrícia Moraes', category: 'Técnico de enfermagem', registration: 'COREN-91204', defaultRole: 'Técnica Berçário', sector: 'Pediatria', defaultHours: '07:00 - 19:00' },
+
+  // Pronto Atendimento
+  { id: 'reg-pa-001', name: 'Enf. Marcos Vinícius', category: 'Enfermeiro', registration: 'COREN-159820', defaultRole: 'Enfermeiro Triagem / Manchester', sector: 'Pronto Atendimento', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-pa-002', name: 'Enfª. Aline Souza', category: 'Enfermeiro', registration: 'COREN-184512', defaultRole: 'Enfermeira Sala Vermelha', sector: 'Pronto Atendimento', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-pa-003', name: 'Téc. Rodrigo Fernandes', category: 'Técnico de enfermagem', registration: 'COREN-77412', defaultRole: 'Técnico Sala de Medicação Rápida', sector: 'Pronto Atendimento', defaultHours: '07:00 - 13:00' },
+  { id: 'reg-pa-004', name: 'Téc. Patrícia Lima', category: 'Técnico de enfermagem', registration: 'COREN-88190', defaultRole: 'Técnica Observação Adulto', sector: 'Pronto Atendimento', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-pa-005', name: 'Téc. Fernando Henrique Dias', category: 'Técnico de enfermagem', registration: 'COREN-66329', defaultRole: 'Técnico Sutura & Procedimentos', sector: 'Pronto Atendimento', defaultHours: '07:00 - 13:00' },
+
+  // CME
+  { id: 'reg-cme-001', name: 'Enfª. Sandra Mara', category: 'Enfermeiro', registration: 'COREN-128410', defaultRole: 'Enfermeira Responsável CME', sector: 'CME', defaultHours: '07:00 - 17:00' },
+  { id: 'reg-cme-002', name: 'Téc. Carla Regina', category: 'Técnico de enfermagem', registration: 'COREN-79102', defaultRole: 'Técnica Esterilização / Autoclave', sector: 'CME', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-cme-003', name: 'Téc. Maurício Antunes', category: 'Técnico de enfermagem', registration: 'COREN-82415', defaultRole: 'Técnico Preparo de Instrumental', sector: 'CME', defaultHours: '07:00 - 19:00' },
+
+  // Hemodiálise
+  { id: 'reg-hemo-001', name: 'Enfª. Fabiana Silveira', category: 'Enfermeiro', registration: 'COREN-141902', defaultRole: 'Enfermeira Especialista em Nefrologia', sector: 'Hemodiálise', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-hemo-002', name: 'Téc. Daniel Brandão', category: 'Técnico de enfermagem', registration: 'COREN-86401', defaultRole: 'Técnico Hemodiálise Máquinas 1-4', sector: 'Hemodiálise', defaultHours: '07:00 - 19:00' },
+
+  // Maternidade
+  { id: 'reg-mat-001', name: 'Enfª. Letícia Alcantara', category: 'Enfermeiro', registration: 'COREN-155092', defaultRole: 'Enfermeira Obstétrica', sector: 'Maternidade', defaultHours: '07:00 - 19:00' },
+  { id: 'reg-mat-002', name: 'Téc. Miriam Batista', category: 'Técnico de enfermagem', registration: 'COREN-73290', defaultRole: 'Técnica Alojamento Conjunto', sector: 'Maternidade', defaultHours: '07:00 - 19:00' },
+];
+
+export function getStoredRegisteredProfessionals(): RegisteredProfessional[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_REGISTERED_PROFESSIONALS_KEY);
+    if (!raw) {
+      localStorage.setItem(
+        STORAGE_REGISTERED_PROFESSIONALS_KEY,
+        JSON.stringify(INITIAL_REGISTERED_PROFESSIONALS)
+      );
+      return INITIAL_REGISTERED_PROFESSIONALS;
+    }
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error loading registered professionals:', err);
+    return INITIAL_REGISTERED_PROFESSIONALS;
+  }
+}
+
+export function saveRegisteredProfessional(
+  prof: Omit<RegisteredProfessional, 'id'>
+): RegisteredProfessional {
+  const current = getStoredRegisteredProfessionals();
+  const newProf: RegisteredProfessional = {
+    ...prof,
+    id: `reg-custom-${Date.now()}`,
+  };
+  const updated = [newProf, ...current];
+  try {
+    localStorage.setItem(STORAGE_REGISTERED_PROFESSIONALS_KEY, JSON.stringify(updated));
+  } catch (err) {
+    console.error('Error saving registered professional:', err);
+  }
+  return newProf;
+}
+
+export function getRegisteredProfessionalsBySector(sector: string): RegisteredProfessional[] {
+  const all = getStoredRegisteredProfessionals();
+  return all.filter((p) => p.sector.toLowerCase() === sector.toLowerCase());
 }

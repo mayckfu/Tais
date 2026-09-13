@@ -409,6 +409,17 @@ export const isAlertRelevantToUser = (alert: SystemAlert, user: User): boolean =
 
 export type ShiftPresenceStatus = 'presente' | 'ausente' | 'atrasado' | 'remanejado_recebido';
 
+export interface RegisteredProfessional {
+  id: string;
+  name: string;
+  category: 'Enfermeiro' | 'Técnico de enfermagem' | 'Auxiliar de enfermagem' | string;
+  registration: string;
+  defaultRole: string;
+  sector: string;
+  defaultHours?: string;
+  phone?: string;
+}
+
 export interface ShiftStaffMember {
   id: string;
   name: string;
