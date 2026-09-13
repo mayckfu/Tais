@@ -1,13 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   User,
-  DeficitRequest,
   SystemSettings,
   SectorShiftData,
   ShiftStaffMember,
   ShiftPresenceStatus,
   AbsenceReason,
-  NewRequestPreset,
 } from '../types';
 import {
   getStoredShiftData,
@@ -21,7 +19,6 @@ import {
   AlertTriangle,
   Plus,
   Minus,
-  ArrowRight,
   Building,
   Check,
   X,
@@ -36,19 +33,11 @@ import {
 interface MyShiftViewProps {
   currentUser: User;
   settings: SystemSettings;
-  requests: DeficitRequest[];
-  onOpenNewRequestWithPreset: (preset: NewRequestPreset) => void;
-  onNavigateToRequest?: (reqId: string) => void;
-  onOpenNewRequestManual: () => void;
 }
 
 export const MyShiftView: React.FC<MyShiftViewProps> = ({
   currentUser,
   settings,
-  requests,
-  onOpenNewRequestWithPreset,
-  onNavigateToRequest,
-  onOpenNewRequestManual,
 }) => {
   // Setor inicial
   const initialSector =
@@ -345,61 +334,6 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
     };
   }, [shiftData]);
 
-  // Chamados abertos para este setor
-  const sectorActiveRequests = useMemo(() => {
-    return requests.filter(
-      (r) =>
-        r.solicitorSector.toLowerCase() === selectedSector.toLowerCase() &&
-        r.status !== 'encerrada' &&
-        r.status !== 'cancelada'
-    );
-  }, [requests, selectedSector]);
-
-  // Abertura de chamado com 1 toque
-  const handleTriggerOneTouchRequest = () => {
-    if (metrics.allAbsent.length === 0) {
-      onOpenNewRequestManual();
-      return;
-    }
-
-    const absentTechs = metrics.allAbsent.filter(
-      (s) =>
-        s.category.toLowerCase().includes('téc') ||
-        s.category.toLowerCase().includes('aux')
-    );
-    const predominantCategory =
-      absentTechs.length > 0 ? 'Técnico de enfermagem' : 'Enfermeiro';
-
-    const absentTargetGroup = metrics.allAbsent.filter((s) =>
-      s.category.toLowerCase().includes(predominantCategory.toLowerCase().slice(0, 4))
-    );
-
-    const absentNamesList = absentTargetGroup.map((m) => m.name).join(', ');
-    const absentRegsList = absentTargetGroup.map((m) => m.registration).join(', ');
-    const firstReason = absentTargetGroup[0]?.absenceReason || 'falta_injustificada';
-    const firstNotes = absentTargetGroup
-      .map((m) => m.absenceNotes)
-      .filter(Boolean)
-      .join(' | ');
-
-    const preset: NewRequestPreset = {
-      solicitorSector: selectedSector,
-      absentCategory: predominantCategory,
-      absentProfessionalName: absentNamesList,
-      absentProfessionalRegistration: absentRegsList,
-      absentQuantity: absentTargetGroup.length,
-      affectedShift: shiftData.shift,
-      deficitStartTime: '07:00',
-      absenceReason: firstReason,
-      absenceReasonCustom: firstNotes || undefined,
-      initialStep: 2,
-      notes: `Déficit identificado na escala do setor ${selectedSector}. Relação Técnico:Paciente atual em 1:${metrics.techRatioValue} (COFEN: 1:${shiftData.cofenRatioTechTarget}).`,
-    };
-
-    playHospitalChime('warning');
-    onOpenNewRequestWithPreset(preset);
-  };
-
   // Filtragem da lista
   const filteredStaff = useMemo(() => {
     if (activeTabFilter === 'presentes') {
@@ -486,60 +420,6 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
           </button>
         </div>
       </div>
-
-      {/* ALERTA DE DÉFICIT & BOTÃO DE 1 TOQUE (LIMPO E SEM TEXTO EXCESSIVO) */}
-      {metrics.hasDeficit ? (
-        <div
-          id="card-deficit-alert-compact"
-          className="bg-amber-50 border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center shrink-0 border border-amber-300">
-              <AlertTriangle className="w-5 h-5 text-amber-700" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-amber-950 text-xs sm:text-sm">
-                  Déficit na escala: {metrics.allAbsent.length} ausente(s)
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200 text-amber-900">
-                  {metrics.allAbsent.map((a) => a.name).join(', ')}
-                </span>
-              </div>
-              <p className="text-xs text-amber-900 mt-0.5">
-                Relação Téc:Pac subiu para <strong className="underline">1:{metrics.techRatioValue}</strong> (meta COFEN: 1:{shiftData.cofenRatioTechTarget}).
-              </p>
-            </div>
-          </div>
-
-          <button
-            id="btn-one-touch-open-request"
-            onClick={handleTriggerOneTouchRequest}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-700 hover:bg-amber-800 text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
-          >
-            <span>⚡ Abrir Chamado (Equipe Faltante)</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ) : (
-        <div
-          id="card-shift-conformity"
-          className="bg-emerald-50/70 border border-emerald-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-xs"
-        >
-          <div className="flex items-center gap-2.5 text-emerald-900">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              <strong>Equipe completa:</strong> Todos os {shiftData.staff.length} profissionais previstos assumiram o turno.
-            </span>
-          </div>
-          <button
-            onClick={onOpenNewRequestManual}
-            className="text-[11px] font-semibold text-emerald-800 hover:text-emerald-950 underline shrink-0"
-          >
-            Abrir chamado avulso
-          </button>
-        </div>
-      )}
 
       {/* ORIENTAÇÕES COFEN & DIMENSIONAMENTO (PREENCHIMENTO MANUAL DO CENSO) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -723,26 +603,6 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
           </div>
         </div>
       </div>
-
-      {/* SE HOUVER CHAMADO EM ANDAMENTO PARA O SETOR */}
-      {sectorActiveRequests.length > 0 && (
-        <div className="bg-[#F9F7F2] rounded-2xl p-3 border border-[#E8E6D9] flex items-center justify-between gap-3 text-xs">
-          <span className="text-[#5A5A40]">
-            <strong>{sectorActiveRequests.length} chamado(s) aberto(s)</strong> para o setor {selectedSector} neste plantão.
-          </span>
-          <div className="flex items-center gap-2">
-            {sectorActiveRequests.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => onNavigateToRequest?.(r.id)}
-                className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-50 border border-[#E8E6D9] text-[#2D2D2A] font-semibold text-[11px] transition-colors"
-              >
-                {r.protocol} ({r.absentQuantity}x {r.absentCategory})
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ESCALA PREVISTA × REAL (FOCO PRINCIPAL E DIRETO) */}
       <div className="bg-white rounded-2xl border border-[#E8E6D9] shadow-xs overflow-hidden">

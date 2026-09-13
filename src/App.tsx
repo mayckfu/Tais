@@ -668,16 +668,6 @@ export default function App() {
             <MyShiftView
               currentUser={currentUser}
               settings={settings}
-              requests={requests}
-              onOpenNewRequestWithPreset={(preset) => {
-                setNewRequestPreset(preset);
-                setCurrentTab('new_request');
-              }}
-              onOpenNewRequestManual={() => {
-                setNewRequestPreset(null);
-                setCurrentTab('new_request');
-              }}
-              onNavigateToRequest={handleNavigateToRequest}
             />
           )}
 
