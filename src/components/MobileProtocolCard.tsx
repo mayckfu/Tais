@@ -167,6 +167,11 @@ export const MobileProtocolCard: React.FC<MobileProtocolCardProps> = ({
           <p className="font-bold text-xs text-[#2D2D2A] break-words">
             {request.absentQuantity}x {request.absentCategory}
           </p>
+          {request.absentProfessionalName && (
+            <p className="text-[11px] font-semibold text-amber-900 break-words">
+              Ausente: {request.absentProfessionalName}
+            </p>
+          )}
           <p className="text-[11px] text-[#7D7D72] break-words">
             Plantão: <strong>{request.affectedShift}</strong> ({request.deficitStartTime})
           </p>

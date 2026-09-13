@@ -8,6 +8,7 @@ import {
   RelocationStatus,
   RelocationMovement,
   isAlertRelevantToUser,
+  NewRequestPreset,
 } from './types';
 import {
   getStoredRequests,
@@ -28,6 +29,7 @@ import {
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
+import { MyShiftView } from './components/MyShiftView';
 import { NewRequestWizard } from './components/NewRequestWizard';
 import { RequestsListView } from './components/RequestsListView';
 import { DENFQueueView } from './components/DENFQueueView';
@@ -57,6 +59,7 @@ import {
 
 export type NavigationTab =
   | 'dashboard'
+  | 'my_shift'
   | 'new_request'
   | 'requests'
   | 'denf_queue'
@@ -72,6 +75,7 @@ export default function App() {
   // App state
   const [currentUser, setCurrentUserState] = useState<User>(getActiveUser);
   const [currentTab, setCurrentTab] = useState<NavigationTab>('dashboard');
+  const [newRequestPreset, setNewRequestPreset] = useState<NewRequestPreset | null>(null);
 
   const [requests, setRequests] = useState<DeficitRequest[]>(getStoredRequests);
   const [settings, setSettings] = useState<SystemSettings>(getStoredSettings);
@@ -645,7 +649,10 @@ export default function App() {
               requests={requests}
               currentUser={currentUser}
               onNavigateTab={setCurrentTab}
-              onOpenNewRequest={() => setCurrentTab('new_request')}
+              onOpenNewRequest={() => {
+                setNewRequestPreset(null);
+                setCurrentTab('new_request');
+              }}
               onOpenDetails={setDetailsRequest}
               onOpenDecision={setDecisionRequest}
               onOpenClosure={handleOpenClosure}
@@ -656,15 +663,44 @@ export default function App() {
             />
           )}
 
+          {/* TAB: MEU PLANTÃO AGORA (CENSO E ESCALA PREVISTO × REAL) */}
+          {currentTab === 'my_shift' && (
+            <MyShiftView
+              currentUser={currentUser}
+              settings={settings}
+              requests={requests}
+              onOpenNewRequestWithPreset={(preset) => {
+                setNewRequestPreset(preset);
+                setCurrentTab('new_request');
+              }}
+              onOpenNewRequestManual={() => {
+                setNewRequestPreset(null);
+                setCurrentTab('new_request');
+              }}
+              onNavigateToRequest={handleNavigateToRequest}
+            />
+          )}
+
           {/* TAB 2: NOVO DÉFICIT (8-STEP WIZARD) */}
           {currentTab === 'new_request' && (
             <NewRequestWizard
               currentUser={currentUser}
               settings={settings}
               existingRequests={requests}
-              onCreateRequest={handleCreateRequest}
+              initialPreset={newRequestPreset}
+              onCreateRequest={(newReq) => {
+                handleCreateRequest(newReq);
+                setNewRequestPreset(null);
+              }}
+              onSaveRequest={(newReq) => {
+                handleCreateRequest(newReq);
+                setNewRequestPreset(null);
+              }}
               onNavigateToRequest={handleNavigateToRequest}
-              onCancel={() => setCurrentTab('dashboard')}
+              onCancel={() => {
+                setNewRequestPreset(null);
+                setCurrentTab(currentUser.role === 'solicitante' ? 'my_shift' : 'dashboard');
+              }}
             />
           )}
 

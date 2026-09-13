@@ -18,6 +18,7 @@ import {
   Ban,
   AlertOctagon,
   FolderSync,
+  UserX,
 } from 'lucide-react';
 
 interface RequestDetailsModalProps {
@@ -82,9 +83,17 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
               <h2 className="text-lg sm:text-xl font-black tracking-tight text-white break-words">
                 {request.solicitorSector} — Déficit de {request.absentQuantity}x {request.absentCategory}
               </h2>
-              <p className="text-xs text-slate-300 break-words">
-                Solicitado por <strong>{request.solicitorName}</strong> ({request.solicitorRole})
-              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <p className="text-xs text-slate-300 break-words">
+                  Solicitado por <strong>{request.solicitorName}</strong> ({request.solicitorRole})
+                </p>
+                {request.absentProfessionalName && (
+                  <span className="inline-flex items-center gap-1 bg-amber-400/20 text-amber-200 text-xs px-2.5 py-0.5 rounded-full border border-amber-300/30">
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Colaborador ausente: <strong>{request.absentProfessionalName}</strong></span>
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Badges & Close */}
@@ -432,17 +441,36 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {request.absentProfessionalName ? (
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Colaborador Ausente (Quem faltou):</span>
+                      <span className="font-bold text-slate-900 flex items-center gap-1.5 mt-0.5">
+                        <UserX className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>{request.absentProfessionalName}</span>
+                        {request.absentProfessionalRegistration && (
+                          <span className="text-[10px] font-mono text-slate-500 font-normal">
+                            ({request.absentProfessionalRegistration})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Colaborador Ausente:</span>
+                      <span className="text-slate-500 italic text-xs">Não especificado</span>
+                    </div>
+                  )}
                   <div>
                     <span className="text-slate-400 block text-[10px]">Motivo Informado:</span>
                     <span className="font-bold text-slate-800 capitalize">
-                      {request.absenceReason.replace('_', ' ')}
+                      {request.absenceReason.replace(/_/g, ' ')}
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Período de Ausência:</span>
                     <span className="font-semibold text-slate-700">
-                      {request.absencePeriodStart} até {request.absencePeriodEnd}
+                      {request.absencePeriodStart || request.affectedShiftDate} até {request.absencePeriodEnd || request.affectedShiftDate}
                     </span>
                   </div>
                 </div>
@@ -935,11 +963,52 @@ export const RequestDetailsModal: React.FC<RequestDetailsModalProps> = ({
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px]">Status do Desfecho:</span>
-                    <span className="font-bold text-slate-800">
-                      {request.closure?.resolutionType.replace('_', ' ') || 'Em andamento'}
+                    <span className="font-bold text-slate-800 capitalize">
+                      {request.closure?.resolutionType.replace(/_/g, ' ') || 'Em andamento'}
                     </span>
                   </div>
+                  {request.closure && (
+                    <>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Tempo Total de Resolução:</span>
+                        <span className="font-bold text-emerald-700 font-mono">
+                          {request.closure.totalResolutionMinutes} min{' '}
+                          <span className="text-slate-500 font-normal">
+                            ({Math.floor(request.closure.totalResolutionMinutes / 60)}h{' '}
+                            {request.closure.totalResolutionMinutes % 60}min)
+                          </span>
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Efetividade da Conduta:</span>
+                        <span className="font-bold text-slate-800 capitalize">
+                          {request.closure.conductEffectiveness.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Encerrado por:</span>
+                        <span className="font-bold text-slate-800">
+                          {request.closure.closedBy} ({request.closure.closedRole})
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Data/Hora do Encerramento:</span>
+                        <span className="font-bold text-slate-800 font-mono">
+                          {request.closure.closedAt}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
+
+                {request.closure?.closureNotes && (
+                  <div className="pt-2 border-t border-indigo-200">
+                    <span className="text-slate-500 block text-[10px]">
+                      Observações de Encerramento:
+                    </span>
+                    <p className="font-medium text-slate-700 text-xs mt-0.5">{request.closure.closureNotes}</p>
+                  </div>
+                )}
 
                 {request.closure?.followUpReason && (
                   <div className="pt-2 border-t border-indigo-200">

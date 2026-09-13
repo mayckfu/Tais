@@ -16,13 +16,12 @@ import {
   TrendingUp,
   Flame,
   UserCheck,
-  AlertCircle,
-  FileText,
   ClipboardList,
   Bell,
   Volume2,
   Sparkles,
   Radio,
+  FileCheck,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -52,9 +51,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onTriggerSimulatedAlert,
   unreadAlertsCount = 0,
 }) => {
-  // Scoped requests if solicitante
+  const isDENFOrAdmin =
+    currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
+  const isEnfermeiroDePlantao = currentUser.role === 'solicitante';
+
+  // Scoped requests: If nurse, strictly scoped to their assigned sector
   const visibleRequests = useMemo(() => {
-    if (currentUser.role === 'solicitante') {
+    if (isEnfermeiroDePlantao) {
       return requests.filter(
         (r) =>
           r.solicitorSector.toLowerCase() === currentUser.sector.toLowerCase() ||
@@ -62,7 +65,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       );
     }
     return requests;
-  }, [requests, currentUser]);
+  }, [requests, currentUser, isEnfermeiroDePlantao]);
 
   // Key KPI numbers
   const pendingCount = visibleRequests.filter(
@@ -89,7 +92,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return r.status === 'resolvida' || r.status === 'solucao_interna' || r.status === 'encerrada';
   }).length;
 
-  // Urgent attention items (Critical, Emergency, Immediate or High priority pending closure)
+  // Active open requests count for nurse
+  const activeRequestsCount = visibleRequests.filter(
+    (r) => r.status !== 'encerrada' && r.status !== 'cancelada'
+  ).length;
+
+  // Urgent attention items (For Coordinator/Director hospital view)
   const urgentRequests = useMemo(() => {
     return visibleRequests
       .filter(
@@ -102,6 +110,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           r.status !== 'encerrada' &&
           r.status !== 'cancelada'
       )
+      .slice(0, 5);
+  }, [visibleRequests]);
+
+  // Nurse's sector-specific items (Recent active requests in the unit)
+  const nurseSectorRequests = useMemo(() => {
+    return [...visibleRequests]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 5);
   }, [visibleRequests]);
 
@@ -120,14 +135,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return labels[conductType] || custom || conductType;
   };
 
-  // Recent 6 requests
+  // Recent requests for the bottom table
   const recentRequests = useMemo(() => {
     return [...visibleRequests]
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 6);
   }, [visibleRequests]);
 
-  // Professionals in transit requiring arrival confirmation
+  // All in-transit relocations across hospital
   const inTransitRelocations = useMemo(() => {
     const list: { rel: RelocationMovement; req: DeficitRequest }[] = [];
     requests.forEach((req) => {
@@ -140,62 +155,115 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return list;
   }, [requests]);
 
-  const isDENFOrAdmin =
-    currentUser.role === 'denf' || currentUser.role === 'admin' || currentUser.role === 'coordenador';
-  const isEnfermeiroDePlantao = currentUser.role === 'solicitante';
+  // In-transit relocations specifically destined for the nurse's unit
+  const inboundToNurseSector = useMemo(() => {
+    if (!isEnfermeiroDePlantao) return [];
+    return inTransitRelocations.filter(
+      ({ rel }) => rel.destinationSector.trim().toLowerCase() === currentUser.sector.trim().toLowerCase()
+    );
+  }, [inTransitRelocations, isEnfermeiroDePlantao, currentUser.sector]);
 
   return (
     <div id="dashboard-view" className="space-y-6">
-      {/* Top Banner / Welcome with Natural Tones */}
-      <div className="bg-gradient-to-br from-[#5A5A40] via-[#4A4A35] to-[#3E3E32] rounded-3xl p-6 sm:p-8 text-white shadow-sm relative overflow-hidden border border-[#5A5A40]/40">
-        <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#E8E6D9]/20 text-[#E8E6D9] border border-[#E8E6D9]/30">
-                Painel Operacional
-              </span>
-              <span className="text-xs text-[#D8D6C9]">
-                Hospital Central • Diretoria de Enfermagem
-              </span>
+      {/* 1. TOP BANNER: SEPARATED BY USER PROFILE */}
+      {isEnfermeiroDePlantao ? (
+        /* PAINEL DO ENFERMEIRO DE PLANTÃO (FOCO NO SETOR) */
+        <div className="bg-gradient-to-br from-[#405446] via-[#36473B] to-[#2B3930] rounded-3xl p-6 sm:p-8 text-white shadow-sm relative overflow-hidden border border-[#526B5A]/40">
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
+                  Posto de Enfermagem
+                </span>
+                <span className="text-xs text-emerald-100 font-semibold">
+                  Lotação Ativa: <strong>{currentUser.sector}</strong>
+                </span>
+              </div>
+              <h1 className="font-serif font-bold text-2xl sm:text-3xl tracking-tight text-white">
+                Painel do Plantão — {currentUser.sector}
+              </h1>
+              <p className="text-xs sm:text-sm text-emerald-100/90 max-w-2xl font-normal leading-relaxed">
+                Acompanhe o dimensionamento da sua equipe, registre ausências não programadas e monitore os profissionais em cobertura para a sua unidade.
+              </p>
             </div>
-            <h1 className="font-serif font-bold text-2xl sm:text-3xl tracking-tight text-white">
-              Gestão de Déficit de Profissionais & Remanejamento
-            </h1>
-            <p className="text-xs sm:text-sm text-[#D8D6C9] max-w-2xl font-normal leading-relaxed">
-              Comunicação ágil de ausências, triagem de criticidade baseada em dados, deliberação centralizada da DENF e rastreabilidade total do fluxo assistencial.
-            </p>
-          </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
-            <button
-              id="btn-dash-new-request"
-              onClick={onOpenNewRequest}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#D1A661] hover:bg-[#BA8F4D] text-[#2D2D2A] font-bold text-xs shadow-sm transition-all transform hover:-translate-y-0.5"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Comunicar Novo Déficit</span>
-            </button>
-            {isDENFOrAdmin && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+              <button
+                id="btn-dash-meu-plantao"
+                onClick={() => onNavigateTab('my_shift')}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 font-semibold text-xs backdrop-blur-xs transition-all"
+              >
+                <Radio className="w-4 h-4 text-emerald-300 animate-pulse" />
+                <span>Meu Plantão Agora</span>
+              </button>
+              <button
+                id="btn-dash-new-request"
+                onClick={onOpenNewRequest}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#D1A661] hover:bg-[#BA8F4D] text-[#2D2D2A] font-bold text-xs shadow-sm transition-all transform hover:-translate-y-0.5"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Comunicar Novo Déficit</span>
+              </button>
+              <button
+                onClick={() => onNavigateTab('requests')}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs backdrop-blur-xs border border-white/20 transition-all"
+              >
+                <ClipboardList className="w-4 h-4 text-[#D1A661]" />
+                <span>Minhas Solicitações ({visibleRequests.length})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* PAINEL DA DIRETORIA E COORDENAÇÃO DE ENFERMAGEM (DENF / ADMIN) */
+        <div className="bg-gradient-to-br from-[#5A5A40] via-[#4A4A35] to-[#3E3E32] rounded-3xl p-6 sm:p-8 text-white shadow-sm relative overflow-hidden border border-[#5A5A40]/40">
+          <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-[#E8E6D9]/20 text-[#E8E6D9] border border-[#E8E6D9]/30">
+                  Diretoria & Coordenação de Enfermagem
+                </span>
+                <span className="text-xs text-[#D8D6C9]">
+                  Hospital Central • Gestão Hospitalar
+                </span>
+              </div>
+              <h1 className="font-serif font-bold text-2xl sm:text-3xl tracking-tight text-white">
+                Gestão Centralizada de Déficits & Remanejamento
+              </h1>
+              <p className="text-xs sm:text-sm text-[#D8D6C9] max-w-2xl font-normal leading-relaxed">
+                Triagem centralizada de criticidade, deliberação de condutas assistenciais em tempo real e redistribuição equilibrada da força de trabalho hospitalar.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
+              <button
+                id="btn-dash-new-request"
+                onClick={onOpenNewRequest}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#D1A661] hover:bg-[#BA8F4D] text-[#2D2D2A] font-bold text-xs shadow-sm transition-all transform hover:-translate-y-0.5"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Comunicar Novo Déficit</span>
+              </button>
               <button
                 onClick={() => onNavigateTab('denf_queue')}
                 className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-xs backdrop-blur-xs border border-white/20 transition-all"
               >
                 <Clock className="w-4 h-4 text-[#D1A661]" />
-                <span>Fila DENF ({pendingCount})</span>
+                <span>Fila de Deliberação DENF ({pendingCount})</span>
               </button>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Critical Alerts Strip (if any critical deficit is pending) */}
-      {criticalCount > 0 && (
+      {/* 2. ALERTAS HOSPITALARES E CENTRAL DE COMUNICAÇÃO: EXCLUSIVOS DA DENF E COORDENAÇÃO */}
+      {isDENFOrAdmin && criticalCount > 0 && (
         <div className="p-4 rounded-2xl bg-[#9E5A4E] text-white shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-[#7D3F35]">
           <div className="flex items-start sm:items-center gap-3">
             <ShieldAlert className="w-6 h-6 text-white shrink-0 animate-pulse mt-0.5 sm:mt-0" />
             <div>
               <h3 className="font-bold text-sm">
-                Alerta Assistencial: {criticalCount} solicitação(ões) em estado CRÍTICO requerem ação imediata!
+                Alerta Assistencial: {criticalCount === 1 ? '1 solicitação em estado CRÍTICO requer atenção imediata!' : `${criticalCount} solicitações em estado CRÍTICO requerem atenção imediata!`}
               </h3>
               <p className="text-xs text-[#F5DFDC]">
                 Ocorrências com alto risco à segurança do paciente e dimensionamento sob pressão.
@@ -206,14 +274,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={() => onNavigateTab('denf_queue')}
             className="px-4 py-2 rounded-full bg-white text-[#9E5A4E] font-bold text-xs shrink-0 hover:bg-[#F9F7F2] shadow-xs transition-all w-full sm:w-auto text-center"
           >
-            Atender Fila de Emergência
+            Atender Fila de Deliberação
           </button>
         </div>
       )}
 
-      {/* Central de Notificação Push / Alerta Visual e Sonoro do Plantão - EXCLUSIVO DO ENFERMEIRO DE PLANTÃO */}
-      {isEnfermeiroDePlantao && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2A3B32] via-[#2F4238] to-[#1E2B24] text-white shadow-sm border border-[#3D5648] relative overflow-hidden">
+      {isDENFOrAdmin && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#2F3E34] via-[#28362D] to-[#1E2922] text-white shadow-sm border border-[#415648] relative overflow-hidden">
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-[#8C9C82]/25 border border-[#8C9C82]/40 flex items-center justify-center shrink-0 shadow-xs">
@@ -222,15 +289,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                    <span>Alerta Sonoro & Notificação Push do Plantão ({currentUser.sector})</span>
+                    <span>Central de Notificações e Alertas Hospitalares</span>
                   </h3>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#8C9C82]/30 text-[#D8E2D3] border border-[#8C9C82]/50">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    Canal DENF ↔ {currentUser.sector} Ativo
+                    Canal Central DENF Ativo
                   </span>
                 </div>
                 <p className="text-xs text-[#BAC8B3] mt-0.5 max-w-2xl">
-                  Avisos acústicos (toque de 3 tons), vibração háptica no celular e pop-up push em tempo real assim que a DENF delibera sobre o setor {currentUser.sector}.
+                  Canal de despacho e chamadas de emergência ativo para Coordenação e DENF. Avisos acústicos, vibração e pop-ups de plantão.
                 </p>
               </div>
             </div>
@@ -240,19 +307,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 id="btn-dash-test-chime"
                 onClick={() => playHospitalChime('dispatch')}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold border border-white/20 transition-all hover:-translate-y-0.5"
-                title="Testar campainha acústica de 3 tons do posto"
+                title="Testar sinal sonoro de deliberação"
               >
                 <Volume2 className="w-3.5 h-3.5 text-[#D1A661]" />
-                <span>Testar Som</span>
+                <span>Testar Sinal Sonoro</span>
               </button>
               <button
                 id="btn-dash-simulate-alert"
                 onClick={onTriggerSimulatedAlert}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#D1A661] hover:bg-[#BA8F4D] text-[#2D2D2A] text-xs font-bold transition-all shadow-xs hover:-translate-y-0.5"
-                title="Simular deliberação da DENF com som, vibração e banner para o seu setor"
+                title="Simular despacho de profissional para testes operacionais"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Simular Deliberação DENF</span>
+                <span>Simular Notificação</span>
               </button>
               {onOpenNotifications && (
                 <button
@@ -269,8 +336,64 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      {/* In-Transit Relocations Strip (Professionals dispatched awaiting sector arrival) */}
-      {inTransitRelocations.length > 0 && (
+      {/* 3. AVISO DE CHEGADA: EXIBIDO APENAS SE HOUVER PROFISSIONAL EM TRÂNSITO */}
+      {/* Para o enfermeiro: apenas se estiver vindo para a sua unidade */}
+      {isEnfermeiroDePlantao && inboundToNurseSector.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950 to-teal-950 text-white shadow-sm border border-emerald-700/60 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-800/60 pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                  <span>Profissional a Caminho da Sua Unidade ({inboundToNurseSector.length})</span>
+                </h3>
+                <p className="text-xs text-emerald-200">
+                  O profissional designado pela DENF está em trânsito para o seu setor (<strong>{currentUser.sector}</strong>). Confirme a chegada assim que se apresentar no posto.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {inboundToNurseSector.map(({ rel, req }) => (
+              <div
+                key={rel.id}
+                className="p-3 bg-white/10 rounded-xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-emerald-300">{rel.protocol}</span>
+                    <span className="font-bold text-white">
+                      {rel.professionalName || 'Profissional Designado'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-emerald-200 mt-0.5">
+                    Origem: <strong>{rel.originSector}</strong> → Destino: <strong>{rel.destinationSector}</strong> ({rel.professionalCategory})
+                  </div>
+                  <div className="text-[10px] text-slate-300 mt-0.5">
+                    Autorizado por {rel.authorizedBy} às {rel.startTime}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() =>
+                    onOpenArrivalModal ? onOpenArrivalModal(rel, req) : onOpenDetails(req)
+                  }
+                  className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all shrink-0"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Confirmar Apresentação no Posto</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Para Coordenador e DENF: lista geral de remanejamentos em trânsito no hospital */}
+      {isDENFOrAdmin && inTransitRelocations.length > 0 && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-blue-950 text-white shadow-sm border border-blue-800/60 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-blue-800/60 pb-3">
             <div className="flex items-center gap-3">
@@ -279,12 +402,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <div>
                 <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                  <span>Profissional em Deslocamento no Hospital ({inTransitRelocations.length})</span>
+                  <span>Profissionais em Deslocamento no Hospital ({inTransitRelocations.length})</span>
                 </h3>
                 <p className="text-xs text-blue-200">
-                  {currentUser.role === 'solicitante'
-                    ? 'Atenção: o profissional está a caminho. Confirme a chegada no posto assim que ele se apresentar.'
-                    : 'Remanejamentos autorizados em trânsito. A confirmação de chegada cabe ao Enfermeiro do setor de destino.'}
+                  Remanejamentos autorizados em trânsito. A confirmação de chegada cabe ao enfermeiro da unidade de destino.
                 </p>
               </div>
             </div>
@@ -297,65 +418,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-            {inTransitRelocations.map(({ rel, req }) => {
-              const isDestNurse =
-                currentUser.sector.toLowerCase() === rel.destinationSector.toLowerCase() ||
-                currentUser.role === 'solicitante' ||
-                req.solicitorUserId === currentUser.id;
-
-              return (
-                <div
-                  key={rel.id}
-                  className="p-3 bg-white/10 rounded-xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-blue-300">{rel.protocol}</span>
-                      <span className="font-bold text-white">
-                        {rel.professionalName || 'Profissional Designado'}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-blue-200 mt-0.5">
-                      <span>{rel.originSector}</span> → <strong className="text-emerald-300 font-bold">{rel.destinationSector}</strong>{' '}
-                      ({rel.professionalCategory})
-                    </div>
-                    <div className="text-[10px] text-slate-300 mt-0.5">
-                      Despachado por: {rel.authorizedBy} às {rel.startTime}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      onOpenArrivalModal
-                        ? onOpenArrivalModal(rel, req)
-                        : onOpenDetails(req)
-                    }
-                    className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all shrink-0"
-                  >
-                    <UserCheck className="w-3.5 h-3.5" />
-                    <span>
-                      {isDestNurse
-                        ? 'Confirmar Chegada no Setor'
-                        : 'Confirmar Chegada (Supervisão)'}
+            {inTransitRelocations.map(({ rel, req }) => (
+              <div
+                key={rel.id}
+                className="p-3 bg-white/10 rounded-xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-blue-300">{rel.protocol}</span>
+                    <span className="font-bold text-white">
+                      {rel.professionalName || 'Profissional Designado'}
                     </span>
-                  </button>
+                  </div>
+                  <div className="text-[11px] text-blue-200 mt-0.5">
+                    <span>{rel.originSector}</span> → <strong className="text-emerald-300 font-bold">{rel.destinationSector}</strong>{' '}
+                    ({rel.professionalCategory})
+                  </div>
+                  <div className="text-[10px] text-slate-300 mt-0.5">
+                    Despachado por: {rel.authorizedBy} às {rel.startTime}
+                  </div>
                 </div>
-              );
-            })}
+
+                <button
+                  onClick={() =>
+                    onOpenArrivalModal ? onOpenArrivalModal(rel, req) : onOpenDetails(req)
+                  }
+                  className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all shrink-0"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Confirmar Chegada (Supervisão)</span>
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* 4 Main KPI Cards */}
+      {/* 4. CARDS DE INDICADORES: ADAPTADOS AO PERFIL */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {/* 1. Pendentes DENF / Parecer */}
+        {/* Card 1 */}
         <div
           onClick={() => onNavigateTab(isEnfermeiroDePlantao ? 'requests' : 'denf_queue')}
           className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-5 cursor-pointer hover:border-[#8C9C82] hover:shadow-sm transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#8E8E80]">
-              {isEnfermeiroDePlantao ? 'Aguardando Parecer' : 'Aguardando DENF'}
+              {isEnfermeiroDePlantao ? 'Aguardando Parecer DENF' : 'Fila DENF Pendente'}
             </span>
             <div className="w-8 h-8 rounded-xl bg-[#F9F7F2] border border-[#E8E6D9] flex items-center justify-center text-[#5A5A40] shrink-0">
               <Clock className="w-4 h-4" />
@@ -363,68 +471,78 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-2 flex flex-wrap items-baseline gap-1.5">
             <span className="font-serif font-bold text-3xl text-[#5A5A40]">{pendingCount}</span>
-            <span className="text-xs text-[#7D7D72] font-medium">solicitações</span>
+            <span className="text-xs text-[#7D7D72] font-medium">
+              {isEnfermeiroDePlantao ? 'solicitações pendentes' : 'aguardando deliberação'}
+            </span>
           </div>
           <div className="mt-3 flex items-center text-xs text-[#5A5A40] font-semibold gap-1">
-            <span>{isEnfermeiroDePlantao ? 'Ver Minhas Solicitações' : 'Ver Fila Operacional'}</span>
+            <span>{isEnfermeiroDePlantao ? 'Ver Minhas Solicitações' : 'Atender Fila Operacional'}</span>
             <ArrowRight className="w-3 h-3" />
           </div>
         </div>
 
-        {/* 2. Ocorrências Críticas */}
+        {/* Card 2 */}
         <div
           onClick={() => onNavigateTab('requests')}
           className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-5 cursor-pointer hover:border-[#9E5A4E] hover:shadow-sm transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#8E8E80]">
-              Déficits Críticos
+              {isEnfermeiroDePlantao ? 'Minhas Solicitações Ativas' : 'Déficits Críticos no Hospital'}
             </span>
             <div className="w-8 h-8 rounded-xl bg-[#F9F7F2] border border-[#E8E6D9] flex items-center justify-center text-[#9E5A4E] shrink-0">
               <Flame className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-2 flex flex-wrap items-baseline gap-1.5">
-            <span className="font-serif font-bold text-3xl text-[#9E5A4E]">{criticalCount}</span>
-            <span className="text-xs text-[#9E5A4E] font-medium">prioridade alta</span>
+            <span className="font-serif font-bold text-3xl text-[#9E5A4E]">
+              {isEnfermeiroDePlantao ? activeRequestsCount : criticalCount}
+            </span>
+            <span className="text-xs text-[#9E5A4E] font-medium">
+              {isEnfermeiroDePlantao ? 'em acompanhamento' : 'risco assistencial elevado'}
+            </span>
           </div>
           <div className="mt-3 flex items-center text-xs text-[#9E5A4E] font-semibold gap-1">
-            <span>Filtrar Críticas</span>
+            <span>{isEnfermeiroDePlantao ? 'Acompanhar Plantão' : 'Triagem Prioritária'}</span>
             <ArrowRight className="w-3 h-3" />
           </div>
         </div>
 
-        {/* 3. Remanejamentos em Andamento */}
+        {/* Card 3 */}
         <div
           onClick={() => onNavigateTab('relocations')}
           className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-5 cursor-pointer hover:border-[#8C9C82] hover:shadow-sm transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#8E8E80]">
-              Remanejamentos
+              {isEnfermeiroDePlantao ? 'Profissionais em Cobertura' : 'Remanejamentos Ativos'}
             </span>
             <div className="w-8 h-8 rounded-xl bg-[#F9F7F2] border border-[#E8E6D9] flex items-center justify-center text-[#5A5A40] shrink-0">
               <ArrowRightLeft className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-2 flex flex-wrap items-baseline gap-1.5">
-            <span className="font-serif font-bold text-3xl text-[#5A5A40]">{activeRelocationsCount}</span>
-            <span className="text-xs text-[#7D7D72] font-medium">em trânsito / cobertura</span>
+            <span className="font-serif font-bold text-3xl text-[#5A5A40]">
+              {isEnfermeiroDePlantao ? inboundToNurseSector.length : activeRelocationsCount}
+            </span>
+            <span className="text-xs text-[#7D7D72] font-medium">
+              {isEnfermeiroDePlantao ? 'para a sua unidade' : 'em trânsito ou cobertura'}
+            </span>
           </div>
           <div className="mt-3 flex items-center text-xs text-[#5A5A40] font-semibold gap-1">
-            <span>Rastrear em Tempo Real</span>
+            <span>{isEnfermeiroDePlantao ? 'Ver Coberturas Recebidas' : 'Painel em Tempo Real'}</span>
             <ArrowRight className="w-3 h-3" />
           </div>
         </div>
 
-        {/* 4. Coberturas Concluídas */}
+        {/* Card 4 */}
         <div
           onClick={() => onNavigateTab(isEnfermeiroDePlantao ? 'requests' : 'indicators')}
           className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-5 cursor-pointer hover:border-[#8C9C82] hover:shadow-sm transition-all"
         >
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#8E8E80]">
-              {isEnfermeiroDePlantao ? 'Demandas Atendidas' : 'Solucionadas'}
+              {isEnfermeiroDePlantao ? 'Solicitações Concluídas' : 'Demandas Solucionadas'}
             </span>
             <div className="w-8 h-8 rounded-xl bg-[#F9F7F2] border border-[#E8E6D9] flex items-center justify-center text-[#8C9C82] shrink-0">
               <CheckCircle2 className="w-4 h-4" />
@@ -432,49 +550,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-2 flex flex-wrap items-baseline gap-1.5">
             <span className="font-serif font-bold text-3xl text-[#5A5A40]">{resolvedTodayCount}</span>
-            <span className="text-xs text-[#7D7D72] font-medium">demandas atendidas</span>
+            <span className="text-xs text-[#7D7D72] font-medium">
+              {isEnfermeiroDePlantao ? 'encerradas no setor' : 'atendimentos concluídos'}
+            </span>
           </div>
           <div className="mt-3 flex items-center text-xs text-[#5A5A40] font-semibold gap-1">
-            <span>{isEnfermeiroDePlantao ? 'Ver Minhas Solicitações' : 'Ver Indicadores'}</span>
+            <span>{isEnfermeiroDePlantao ? 'Ver Histórico' : 'Ver Indicadores Globais'}</span>
             <ArrowRight className="w-3 h-3" />
           </div>
         </div>
       </div>
 
-      {/* Urgent Attention Grid & Fast Actions */}
+      {/* 5. SEÇÃO PRINCIPAL: SOLICITAÇÕES DA UNIDADE (ENFERMEIRO) OU PRIORIDADES HOSPITALARES (DENF) */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Urgências Assistenciais */}
+        {/* Left 2 Cols */}
         <div className="xl:col-span-2 bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-[#E8E6D9] pb-3.5">
             <div className="flex items-center gap-2.5">
-              <ShieldAlert className="w-5 h-5 text-[#9E5A4E] shrink-0" />
+              {isEnfermeiroDePlantao ? (
+                <ClipboardList className="w-5 h-5 text-[#5A6D50] shrink-0" />
+              ) : (
+                <ShieldAlert className="w-5 h-5 text-[#9E5A4E] shrink-0" />
+              )}
               <div>
                 <h2 className="font-serif font-bold text-base text-[#2D2D2A]">
-                  Ocorrências de Alta Prioridade Assistencial
+                  {isEnfermeiroDePlantao
+                    ? `Solicitações da Unidade — ${currentUser.sector}`
+                    : 'Ocorrências de Alta Prioridade Assistencial (Visão Hospitalar)'}
                 </h2>
                 <p className="text-[11px] text-[#7D7D72]">
-                  {currentUser.role === 'solicitante'
-                    ? `Filtrado para sua unidade: ${currentUser.sector}`
-                    : 'Visão Institucional: Demandas prioritárias de todas as unidades'}
+                  {isEnfermeiroDePlantao
+                    ? 'Histórico e acompanhamento das ausências comunicadas no seu setor de lotação.'
+                    : 'Demandas críticas e emergenciais de todas as unidades hospitalares pendentes de ação.'}
                 </p>
               </div>
             </div>
             <button
-              onClick={() => onNavigateTab(currentUser.role === 'solicitante' ? 'requests' : 'denf_queue')}
+              onClick={() => onNavigateTab(isEnfermeiroDePlantao ? 'requests' : 'denf_queue')}
               className="text-xs font-bold text-[#5A5A40] hover:text-[#3E3E32]"
             >
-              {currentUser.role === 'solicitante' ? 'Minhas Solicitações →' : 'Ver todas na Fila →'}
+              {isEnfermeiroDePlantao ? 'Ver Todas as Minhas Solicitações →' : 'Ver Fila DENF Completa →'}
             </button>
           </div>
 
           <div className="space-y-3.5">
-            {urgentRequests.length === 0 ? (
+            {(isEnfermeiroDePlantao ? nurseSectorRequests : urgentRequests).length === 0 ? (
               <div className="py-8 text-center text-[#8E8E80] text-xs">
                 <CheckCircle2 className="w-6 h-6 text-[#8C9C82] mx-auto mb-1.5" />
-                <span>Nenhuma ocorrência prioritária ou crítica pendente no momento.</span>
+                <span>
+                  {isEnfermeiroDePlantao
+                    ? 'Nenhuma solicitação registrada para a sua unidade até o momento.'
+                    : 'Nenhuma ocorrência prioritária ou crítica pendente no hospital no momento.'}
+                </span>
               </div>
             ) : (
-              urgentRequests.map((req) => {
+              (isEnfermeiroDePlantao ? nurseSectorRequests : urgentRequests).map((req) => {
                 const hasRelocations = req.relocations && req.relocations.length > 0;
                 const isAttended =
                   req.status === 'resolvida' ||
@@ -522,7 +652,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </p>
                     </div>
 
-                    {/* Linha 3: Status Real do Atendimento / Remanejamento em Tempo Real */}
+                    {/* Linha 3: Status Real do Atendimento / Remanejamento */}
                     {hasRelocations ? (
                       <div className="p-3 rounded-lg bg-white border border-[#E8E6D9] space-y-2 shadow-2xs">
                         <div className="flex items-center justify-between text-[11px]">
@@ -531,7 +661,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             Remanejamento Assistencial Designado:
                           </span>
                           <span className="text-[10px] text-[#7D7D72]">
-                            Central DENF
+                            Diretoria de Enfermagem (DENF)
                           </span>
                         </div>
                         <div className="space-y-1.5">
@@ -577,12 +707,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <div className="p-2.5 rounded-lg bg-[#D1A661]/10 border border-[#D1A661]/30 text-xs text-[#7A581E] flex items-center gap-2">
                         <Clock className="w-3.5 h-3.5 text-[#BA8F4D] shrink-0 animate-pulse" />
                         <span className="text-[11px]">
-                          Aguardando análise e deliberação da Central DENF / Coordenação de Enfermagem.
+                          Aguardando análise e deliberação da Diretoria de Enfermagem (DENF).
                         </span>
                       </div>
                     )}
 
-                    {/* Linha 4: Ações Operacionais (Encerramento pelo Enfermeiro ou Deliberação DENF) */}
+                    {/* Linha 4: Ações Operacionais */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-[#E8E6D9]/50">
                       <div className="text-[11px] text-[#7D7D72] break-words">
                         {isAttended ? (
@@ -590,8 +720,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             <CheckCircle2 className="w-3 h-3 text-[#5A6D50] shrink-0" />
                             <span>
                               {isEnfermeiroDePlantao
-                                ? 'Atendimento prestado. Pronto para registro de desfecho pelo plantonista.'
-                                : 'Atendimento prestado. Fechamento da ocorrência a ser realizado pelo Enfermeiro de Plantão.'}
+                                ? 'Cobertura encaminhada. Ao término do plantão, registre o desfecho da ocorrência.'
+                                : 'Atendimento prestado. Desfecho final sob responsabilidade do enfermeiro do setor.'}
                             </span>
                           </span>
                         ) : (
@@ -602,20 +732,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-auto">
-                        {/* Botão de Encerramento / Desfecho: restrito exclusivamente ao Enfermeiro de Plantão */}
+                        {/* Botão de Encerramento / Desfecho: exclusivo do enfermeiro da unidade solicitante */}
                         {isEnfermeiroDePlantao && isAttended && req.status !== 'encerrada' && (
                           <button
                             id={`btn-closure-card-${req.id}`}
                             onClick={() => (onOpenClosure ? onOpenClosure(req) : onOpenDetails(req))}
                             className="flex-1 sm:flex-none px-3.5 py-2 rounded-lg bg-[#4A6344] hover:bg-[#3B5036] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"
-                            title="Registrar desfecho e encerrar o chamado (Exclusivo Enfermeiro de Plantão)"
+                            title="Registrar desfecho e encerrar o chamado"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                            <FileCheck className="w-3.5 h-3.5 shrink-0" />
                             <span>Registrar Desfecho</span>
                           </button>
                         )}
 
-                        {/* Botão de Deliberação para DENF se ainda pendente */}
+                        {/* Botão de Deliberação: para coordenador e DENF */}
                         {isDENFOrAdmin &&
                           (req.status === 'aguardando_analise' || req.status === 'em_analise') && (
                             <button
@@ -644,7 +774,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Right 1 Col: Acesso Rápido Operacional / Gestão */}
+        {/* Right 1 Col: Acesso Rápido */}
         <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] p-6 space-y-4 flex flex-col justify-between">
           <div>
             <h3 className="font-serif font-bold text-sm text-[#2D2D2A] border-b border-[#E8E6D9] pb-3">
@@ -744,33 +874,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
             <p className="text-[11px] text-[#7D7D72] mt-1 leading-relaxed">
               {isEnfermeiroDePlantao
-                ? 'Comunique déficits com antecedência e, ao término da assistência, registre o desfecho para encerrar a ocorrência.'
-                : 'Notifique ausências com antecedência mínima de 2 horas do início do plantão para otimizar as rotas de remanejamento.'}
+                ? 'Comunique déficits com a maior antecedência possível do início do plantão. Ao término da cobertura assistencial, registre o desfecho para formalizar o encerramento da ocorrência.'
+                : 'Notifique ausências com antecedência mínima de 2 horas do início do plantão para otimizar as rotas de remanejamento e dimensionamento.'}
             </p>
           </div>
         </div>
       </div>
 
-      {/* Recent Requests Table */}
+      {/* 6. TABELA DE ÚLTIMAS OCORRÊNCIAS REGISTRADAS */}
       <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] overflow-hidden">
         <div className="p-4 bg-[#F9F7F2] border-b border-[#E8E6D9] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="font-serif font-bold text-sm text-[#2D2D2A]">
-              Últimas Ocorrências Registradas
+              {isEnfermeiroDePlantao
+                ? `Últimas Ocorrências Registradas — ${currentUser.sector}`
+                : 'Últimas Ocorrências Registradas no Hospital'}
             </h2>
             <p className="text-[11px] text-[#7D7D72] mt-0.5 flex items-center gap-1.5">
-              {currentUser.role === 'solicitante' ? (
+              {isEnfermeiroDePlantao ? (
                 <>
                   <span className="inline-block w-2 h-2 rounded-full bg-[#8C9C82]"></span>
                   <span>
-                    Exibindo apenas ocorrências da sua unidade: <strong>{currentUser.sector}</strong>
+                    Exibindo exclusivamente ocorrências da sua unidade de lotação: <strong>{currentUser.sector}</strong>
                   </span>
                 </>
               ) : (
                 <>
                   <span className="inline-block w-2 h-2 rounded-full bg-[#5A5A40]"></span>
                   <span>
-                    Visão Geral do Hospital: Todos os setores, blocos e enfermarias
+                    Visão Geral do Hospital: Todos os setores, blocos cirúrgicos e enfermarias
                   </span>
                 </>
               )}
@@ -780,9 +912,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             onClick={() => onNavigateTab('requests')}
             className="text-xs font-bold text-[#5A5A40] hover:text-[#3E3E32] self-start sm:self-auto"
           >
-            {currentUser.role === 'solicitante'
+            {isEnfermeiroDePlantao
               ? `Ver Todas da ${currentUser.sector} (${visibleRequests.length}) →`
-              : `Ver Histórico Geral (${visibleRequests.length}) →`}
+              : `Ver Histórico Hospitalar (${visibleRequests.length}) →`}
           </button>
         </div>
 
@@ -826,7 +958,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <td className="py-3 px-4 font-mono font-bold text-[#2D2D2A] whitespace-nowrap">
                     {req.protocol}
                     <span className="text-[10px] text-[#8E8E80] block font-normal">
-                      {req.requestDate} {req.requestTime}
+                      {req.requestDate} às {req.requestTime}
                     </span>
                   </td>
                   <td className="py-3 px-4 font-semibold text-[#2D2D2A] whitespace-nowrap">

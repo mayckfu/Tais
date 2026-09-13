@@ -342,7 +342,12 @@ export const DENFQueueView: React.FC<DENFQueueViewProps> = ({
                         <div className="font-bold text-[#2D2D2A]">
                           {req.absentQuantity}x {req.absentCategory}
                         </div>
-                        <span className="text-[10px] text-[#7D7D72]">
+                        {req.absentProfessionalName && (
+                          <div className="text-[11px] font-semibold text-amber-900 truncate max-w-[190px]" title={`Colaborador ausente: ${req.absentProfessionalName}`}>
+                            Ausente: {req.absentProfessionalName}
+                          </div>
+                        )}
+                        <span className="text-[10px] text-[#7D7D72] block">
                           Motivo: {req.absenceReason.replace('_', ' ')}
                         </span>
                       </td>

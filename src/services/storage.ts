@@ -7,6 +7,9 @@ import {
   AuditLogEntry,
   TimelineEvent,
   RelocationMovement,
+  SectorShiftData,
+  ShiftStaffMember,
+  ShiftPresenceStatus,
 } from '../types';
 
 export const INITIAL_USERS: User[] = [
@@ -207,6 +210,8 @@ export const INITIAL_REQUESTS: DeficitRequest[] = [
     solicitorRole: 'Enfermeiro',
     solicitorUserId: 'usr-001',
     absentCategory: 'Técnico de enfermagem',
+    absentProfessionalName: 'Téc. Carla Ferreira, Téc. Bruno Lopes',
+    absentProfessionalRegistration: 'COREN-84210 / COREN-91044',
     absentQuantity: 2,
     affectedShift: '12 horas',
     affectedShiftDate: TODAY,
@@ -407,6 +412,8 @@ export const INITIAL_REQUESTS: DeficitRequest[] = [
     solicitorRole: 'Enfermeiro',
     solicitorUserId: 'usr-001',
     absentCategory: 'Enfermeiro',
+    absentProfessionalName: 'Enf. Lucas Mendes',
+    absentProfessionalRegistration: 'COREN-12845',
     absentQuantity: 1,
     affectedShift: 'Manhã',
     affectedShiftDate: TODAY,
@@ -1362,3 +1369,458 @@ export const RBAC = {
     return role === 'denf' || role === 'coordenador' || role === 'admin';
   },
 };
+
+// ========================================================
+// REPOSITÓRIO DO PLANTÃO ATIVO: CENSO & ESCALA (PREVISTO × REAL)
+// ========================================================
+
+const STORAGE_SHIFTS_KEY = 'hospital_shifts_data_v1';
+
+export const DEFAULT_SECTOR_SHIFTS: Record<string, SectorShiftData> = {
+  UTI: {
+    sector: 'UTI',
+    shift: 'Manhã',
+    date: TODAY,
+    totalBeds: 20,
+    occupiedBeds: 18,
+    criticalPatients: 7, // Em Ventilação Mecânica / Drogas Vasoativas
+    semiCriticalPatients: 8, // Cuidados intensivos intermediários
+    stablePatients: 3, // Em desmame / transição para enfermaria
+    cofenRatioNurseTarget: 8, // Cofen: 1 enfermeiro p/ 8 a 10 leitos UTI
+    cofenRatioTechTarget: 3, // Cofen: 1 técnico p/ cada 2 a 3 leitos UTI
+    lastUpdated: '07:15',
+    staff: [
+      {
+        id: 'stf-001',
+        name: 'Enfª. Mariana Costa',
+        category: 'Enfermeiro',
+        registration: 'COREN-142857',
+        scheduledRole: 'Enfermeira Chefe do Posto',
+        scheduledHours: '07:00 - 19:00 (12h)',
+        status: 'presente',
+        checkInTime: '06:48',
+      },
+      {
+        id: 'stf-002',
+        name: 'Enf. Lucas Mendes',
+        category: 'Enfermeiro',
+        registration: 'COREN-12845',
+        scheduledRole: 'Enfermeiro Assistencial (Leitos 1 a 10)',
+        scheduledHours: '07:00 - 13:00 (6h)',
+        status: 'presente',
+        checkInTime: '06:55',
+      },
+      {
+        id: 'stf-003',
+        name: 'Téc. Carla Ferreira',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-84210',
+        scheduledRole: 'Técnica Cuidados Intensivos (Leitos 1 a 5)',
+        scheduledHours: '07:00 - 19:00 (12h)',
+        status: 'presente',
+        checkInTime: '06:50',
+      },
+      {
+        id: 'stf-004',
+        name: 'Téc. Bruno Lopes',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-91044',
+        scheduledRole: 'Técnico Cuidados Intensivos (Leitos 6 a 10)',
+        scheduledHours: '07:00 - 19:00 (12h)',
+        status: 'presente',
+        checkInTime: '06:58',
+      },
+      {
+        id: 'stf-005',
+        name: 'Téc. Maria dos Santos Silveira',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-54321',
+        scheduledRole: 'Técnica Cuidados Intensivos (Leitos 11 a 15)',
+        scheduledHours: '07:00 - 19:00 (12h)',
+        status: 'ausente',
+        absenceReason: 'atestado',
+        absenceNotes: 'Atestado médico de 3 dias enviado via WhatsApp ao posto às 06:30.',
+      },
+      {
+        id: 'stf-006',
+        name: 'Téc. Juliana Rocha',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-67120',
+        scheduledRole: 'Técnica Cuidados Intensivos (Leitos 16 a 20)',
+        scheduledHours: '07:00 - 19:00 (12h)',
+        status: 'ausente',
+        absenceReason: 'falta_injustificada',
+        absenceNotes: 'Não se apresentou no início do plantão às 07:00. Telefone desligado.',
+      },
+    ],
+  },
+  'Pronto Atendimento': {
+    sector: 'Pronto Atendimento',
+    shift: 'Manhã',
+    date: TODAY,
+    totalBeds: 25,
+    occupiedBeds: 24,
+    criticalPatients: 5,
+    semiCriticalPatients: 12,
+    stablePatients: 7,
+    cofenRatioNurseTarget: 10,
+    cofenRatioTechTarget: 4,
+    lastUpdated: '07:20',
+    staff: [
+      {
+        id: 'stf-pa-001',
+        name: 'Enf. Marcos Vinícius',
+        category: 'Enfermeiro',
+        registration: 'COREN-159820',
+        scheduledRole: 'Enfermeiro de Triagem / Manchester',
+        scheduledHours: '07:00 - 19:00 (12h)',
+        status: 'presente',
+        checkInTime: '06:45',
+      },
+      {
+        id: 'stf-pa-002',
+        name: 'Enfª. Aline Souza',
+        category: 'Enfermeiro',
+        registration: 'COREN-184512',
+        scheduledRole: 'Enfermeira Sala Vermelha / Emergência',
+        scheduledHours: '07:00 - 19:00 (12h)',
+        status: 'presente',
+        checkInTime: '06:50',
+      },
+      {
+        id: 'stf-pa-003',
+        name: 'Téc. Rodrigo Fernandes',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-77412',
+        scheduledRole: 'Técnico Sala de Medicação Rápida',
+        scheduledHours: '07:00 - 13:00 (6h)',
+        status: 'presente',
+        checkInTime: '06:55',
+      },
+      {
+        id: 'stf-pa-004',
+        name: 'Téc. Patrícia Lima',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-88190',
+        scheduledRole: 'Técnica Observação Adulto',
+        scheduledHours: '07:00 - 19:00 (12h)',
+        status: 'presente',
+        checkInTime: '07:02',
+      },
+      {
+        id: 'stf-pa-005',
+        name: 'Téc. Fernando Henrique Dias',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-66329',
+        scheduledRole: 'Técnico Sala de Sutura & Procedimentos',
+        scheduledHours: '07:00 - 13:00 (6h)',
+        status: 'ausente',
+        absenceReason: 'falta_injustificada',
+        absenceNotes: 'Não compareceu à passagem de plantão.',
+      },
+    ],
+  },
+  'Centro Cirúrgico': {
+    sector: 'Centro Cirúrgico',
+    shift: 'Manhã',
+    date: TODAY,
+    totalBeds: 8,
+    occupiedBeds: 6, // 6 salas operatórias ativas
+    criticalPatients: 2,
+    semiCriticalPatients: 4,
+    stablePatients: 0,
+    cofenRatioNurseTarget: 4,
+    cofenRatioTechTarget: 1, // 1 técnico por sala
+    lastUpdated: '07:10',
+    staff: [
+      {
+        id: 'stf-cc-001',
+        name: 'Enf. Roberto Almeida',
+        category: 'Enfermeiro',
+        registration: 'COREN-098231',
+        scheduledRole: 'Coordenador / Supervisor de Bloco',
+        scheduledHours: '07:00 - 17:00',
+        status: 'presente',
+        checkInTime: '06:40',
+      },
+      {
+        id: 'stf-cc-002',
+        name: 'Enfª. Camila Nogueira',
+        category: 'Enfermeiro',
+        registration: 'COREN-119830',
+        scheduledRole: 'Enfermeira Recuperação Pós-Anestésica (RPA)',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:50',
+      },
+      {
+        id: 'stf-cc-003',
+        name: 'Téc. Marcelo Silveira',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-72194',
+        scheduledRole: 'Instrumentador / Circulante Sala 1',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:45',
+      },
+      {
+        id: 'stf-cc-004',
+        name: 'Téc. Tatiana Borges',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-81340',
+        scheduledRole: 'Circulante de Sala 2',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:55',
+      },
+      {
+        id: 'stf-cc-005',
+        name: 'Téc. Guilherme Santos',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-99231',
+        scheduledRole: 'Circulante de Sala 3 e 4',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '07:00',
+      },
+    ],
+  },
+  CLM: {
+    sector: 'CLM',
+    shift: 'Manhã',
+    date: TODAY,
+    totalBeds: 30,
+    occupiedBeds: 28,
+    criticalPatients: 3,
+    semiCriticalPatients: 15,
+    stablePatients: 10,
+    cofenRatioNurseTarget: 15,
+    cofenRatioTechTarget: 5,
+    lastUpdated: '07:05',
+    staff: [
+      {
+        id: 'stf-clm-001',
+        name: 'Enfª. Daniela Tavares',
+        category: 'Enfermeiro',
+        registration: 'COREN-134900',
+        scheduledRole: 'Enfermeira Responsável CLM',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:50',
+      },
+      {
+        id: 'stf-clm-002',
+        name: 'Téc. Vanessa Toledo',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-88319',
+        scheduledRole: 'Técnica Ala A (Leitos 1-10)',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:52',
+      },
+      {
+        id: 'stf-clm-003',
+        name: 'Téc. Anderson Costa',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-74129',
+        scheduledRole: 'Técnico Ala B (Leitos 11-20)',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:58',
+      },
+      {
+        id: 'stf-clm-004',
+        name: 'Téc. Sandra Regina',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-62190',
+        scheduledRole: 'Técnica Ala C (Leitos 21-30)',
+        scheduledHours: '07:00 - 19:00',
+        status: 'ausente',
+        absenceReason: 'atestado',
+        absenceNotes: 'Atestado ortopédico apresentado com antecedência.',
+      },
+    ],
+  },
+  CLC: {
+    sector: 'CLC',
+    shift: 'Manhã',
+    date: TODAY,
+    totalBeds: 28,
+    occupiedBeds: 25,
+    criticalPatients: 4,
+    semiCriticalPatients: 12,
+    stablePatients: 9,
+    cofenRatioNurseTarget: 14,
+    cofenRatioTechTarget: 5,
+    lastUpdated: '07:00',
+    staff: [
+      {
+        id: 'stf-clc-001',
+        name: 'Enf. Thiago Santos',
+        category: 'Enfermeiro',
+        registration: 'COREN-166290',
+        scheduledRole: 'Enfermeiro CLC Geral',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:45',
+      },
+      {
+        id: 'stf-clc-002',
+        name: 'Téc. Simone Duarte',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-91280',
+        scheduledRole: 'Técnica Leitos Pares',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:55',
+      },
+      {
+        id: 'stf-clc-003',
+        name: 'Téc. Renan Castro',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-85412',
+        scheduledRole: 'Técnico Leitos Ímpares',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:59',
+      },
+    ],
+  },
+  Pediatria: {
+    sector: 'Pediatria',
+    shift: 'Manhã',
+    date: TODAY,
+    totalBeds: 16,
+    occupiedBeds: 14,
+    criticalPatients: 2,
+    semiCriticalPatients: 6,
+    stablePatients: 6,
+    cofenRatioNurseTarget: 8,
+    cofenRatioTechTarget: 3,
+    lastUpdated: '07:12',
+    staff: [
+      {
+        id: 'stf-ped-001',
+        name: 'Enfª. Juliana Prado',
+        category: 'Enfermeiro',
+        registration: 'COREN-178450',
+        scheduledRole: 'Enfermeira Pediatria',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:50',
+      },
+      {
+        id: 'stf-ped-002',
+        name: 'Téc. Gabriela Martins',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-92381',
+        scheduledRole: 'Técnica Enfermaria Pediátrica',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:55',
+      },
+      {
+        id: 'stf-ped-003',
+        name: 'Téc. Renata Vasconcelos',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-83190',
+        scheduledRole: 'Técnica Lactário e Isolamento',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:58',
+      },
+    ],
+  },
+};
+
+export function getAllStoredShifts(): Record<string, SectorShiftData> {
+  try {
+    const raw = localStorage.getItem(STORAGE_SHIFTS_KEY);
+    if (!raw) {
+      localStorage.setItem(STORAGE_SHIFTS_KEY, JSON.stringify(DEFAULT_SECTOR_SHIFTS));
+      return DEFAULT_SECTOR_SHIFTS;
+    }
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_SECTOR_SHIFTS, ...parsed };
+  } catch (err) {
+    console.error('Error loading shift data:', err);
+    return DEFAULT_SECTOR_SHIFTS;
+  }
+}
+
+export function saveAllStoredShifts(shifts: Record<string, SectorShiftData>): void {
+  try {
+    localStorage.setItem(STORAGE_SHIFTS_KEY, JSON.stringify(shifts));
+  } catch (err) {
+    console.error('Error saving shift data:', err);
+  }
+}
+
+export function getStoredShiftData(sectorName: string): SectorShiftData {
+  const all = getAllStoredShifts();
+  if (all[sectorName]) {
+    return all[sectorName];
+  }
+
+  // Gera modelo padrão dinâmico para setor não catalogado
+  const nowTime = new Date().toTimeString().slice(0, 5);
+  const fallback: SectorShiftData = {
+    sector: sectorName,
+    shift: 'Manhã',
+    date: TODAY,
+    totalBeds: 20,
+    occupiedBeds: 16,
+    criticalPatients: 3,
+    semiCriticalPatients: 8,
+    stablePatients: 5,
+    cofenRatioNurseTarget: 10,
+    cofenRatioTechTarget: 4,
+    lastUpdated: nowTime,
+    staff: [
+      {
+        id: `stf-${Date.now()}-1`,
+        name: 'Enfermeiro de Plantão',
+        category: 'Enfermeiro',
+        registration: 'COREN-SP',
+        scheduledRole: 'Enfermeiro Líder do Posto',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:50',
+      },
+      {
+        id: `stf-${Date.now()}-2`,
+        name: 'Técnico Escala 1',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-SP',
+        scheduledRole: 'Técnico Assistencial',
+        scheduledHours: '07:00 - 19:00',
+        status: 'presente',
+        checkInTime: '06:55',
+      },
+      {
+        id: `stf-${Date.now()}-3`,
+        name: 'Técnico Escala 2',
+        category: 'Técnico de enfermagem',
+        registration: 'COREN-SP',
+        scheduledRole: 'Técnico Assistencial',
+        scheduledHours: '07:00 - 19:00',
+        status: 'ausente',
+        absenceReason: 'falta_injustificada',
+        absenceNotes: 'Não se apresentou no plantão.',
+      },
+    ],
+  };
+
+  all[sectorName] = fallback;
+  saveAllStoredShifts(all);
+  return fallback;
+}
+
+export function saveStoredShiftData(data: SectorShiftData): void {
+  const all = getAllStoredShifts();
+  all[data.sector] = {
+    ...data,
+    lastUpdated: new Date().toTimeString().slice(0, 5),
+  };
+  saveAllStoredShifts(all);
+}

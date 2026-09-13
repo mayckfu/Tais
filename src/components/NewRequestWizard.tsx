@@ -8,6 +8,7 @@ import {
   ShiftType,
   AbsenceReason,
   InternalSolutionAlternative,
+  NewRequestPreset,
 } from '../types';
 import {
   calculatePriorityScore,
@@ -31,6 +32,8 @@ import {
   Lock,
   Shield,
   UserCheck,
+  UserX,
+  Sparkles,
 } from 'lucide-react';
 import { CriticalityBadge, ClassificationBadge } from './StatusBadge';
 
@@ -38,6 +41,7 @@ interface NewRequestWizardProps {
   currentUser: User;
   settings: SystemSettings;
   existingRequests: DeficitRequest[];
+  initialPreset?: NewRequestPreset | null;
   onSaveRequest?: (newReq: DeficitRequest) => void;
   onCreateRequest?: (newReq: DeficitRequest) => void;
   onCancel: () => void;
@@ -48,6 +52,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
   currentUser,
   settings,
   existingRequests,
+  initialPreset,
   onSaveRequest,
   onCreateRequest,
   onCancel,
@@ -56,7 +61,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
   const today = new Date().toISOString().split('T')[0];
   const currentTime = new Date().toTimeString().slice(0, 5);
 
-  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [currentStep, setCurrentStep] = useState<number>(initialPreset?.initialStep || 1);
   const totalSteps = 8;
 
   // Verificação de bloqueio ao perfil da pessoa (Enfermeiro / Solicitante de Plantão)
@@ -70,7 +75,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
   const [requestDate, setRequestDate] = useState<string>(today);
   const [requestTime, setRequestTime] = useState<string>(currentTime);
   const [solicitorSector, setSolicitorSector] = useState<string>(
-    currentUser.sector || 'UTI'
+    initialPreset?.solicitorSector || currentUser.sector || 'UTI'
   );
   const [solicitorSectorCustom, setSolicitorSectorCustom] = useState<string>('');
   const [solicitorName, setSolicitorName] = useState<string>(currentUser.name);
@@ -87,7 +92,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
   // Sincronização automática e contínua com o perfil logado
   useEffect(() => {
     if (isSectorLocked) {
-      setSolicitorSector(currentUser.sector || 'UTI');
+      setSolicitorSector(initialPreset?.solicitorSector || currentUser.sector || 'UTI');
       setSolicitorSectorCustom('');
       setSolicitorName(currentUser.name);
       setSolicitorRole(
@@ -95,22 +100,42 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
           (currentUser.role === 'coordenador' ? 'Coordenador' : 'Enfermeiro')
       );
       setSolicitorRoleCustom('');
-      setDestinationSector(currentUser.sector || 'UTI');
+      setDestinationSector(initialPreset?.solicitorSector || currentUser.sector || 'UTI');
     }
-  }, [currentUser, isSectorLocked]);
+  }, [currentUser, isSectorLocked, initialPreset]);
 
   // Etapa 2: Caracterização do Déficit
-  const [absentCategory, setAbsentCategory] = useState<string>('Técnico de enfermagem');
-  const [absentCategoryCustom, setAbsentCategoryCustom] = useState<string>('');
-  const [absentQuantity, setAbsentQuantity] = useState<number>(1);
-  const [affectedShift, setAffectedShift] = useState<ShiftType>('Manhã');
+  const [absentCategory, setAbsentCategory] = useState<string>(
+    initialPreset?.absentCategory || 'Técnico de enfermagem'
+  );
+  const [absentCategoryCustom, setAbsentCategoryCustom] = useState<string>(
+    initialPreset?.absentCategoryCustom || ''
+  );
+  const [absentProfessionalName, setAbsentProfessionalName] = useState<string>(
+    initialPreset?.absentProfessionalName || ''
+  );
+  const [absentProfessionalRegistration, setAbsentProfessionalRegistration] = useState<string>(
+    initialPreset?.absentProfessionalRegistration || ''
+  );
+  const [absentQuantity, setAbsentQuantity] = useState<number>(
+    initialPreset?.absentQuantity ?? 1
+  );
+  const [affectedShift, setAffectedShift] = useState<ShiftType>(
+    initialPreset?.affectedShift || 'Manhã'
+  );
   const [affectedShiftCustom, setAffectedShiftCustom] = useState<string>('');
   const [affectedShiftDate, setAffectedShiftDate] = useState<string>(today);
-  const [deficitStartTime, setDeficitStartTime] = useState<string>('07:00');
+  const [deficitStartTime, setDeficitStartTime] = useState<string>(
+    initialPreset?.deficitStartTime || '07:00'
+  );
 
   // Etapa 3: Motivo da Ausência
-  const [absenceReason, setAbsenceReason] = useState<AbsenceReason>('atestado');
-  const [absenceReasonCustom, setAbsenceReasonCustom] = useState<string>('');
+  const [absenceReason, setAbsenceReason] = useState<AbsenceReason>(
+    initialPreset?.absenceReason || 'falta_injustificada'
+  );
+  const [absenceReasonCustom, setAbsenceReasonCustom] = useState<string>(
+    initialPreset?.absenceReasonCustom || ''
+  );
 
   // Etapa 4: Previsibilidade
   const [isPredictable, setIsPredictable] = useState<boolean>(false);
@@ -137,12 +162,18 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
 
   // Etapa 8: Solicitação de Remanejamento
   const [needsRelocation, setNeedsRelocation] = useState<boolean>(true);
-  const [requestedRelocationQuantity, setRequestedRelocationQuantity] = useState<number>(1);
-  const [requestedCategory, setRequestedCategory] = useState<string>('Técnico de enfermagem');
-  const [destinationSector, setDestinationSector] = useState<string>(
-    currentUser.sector || 'UTI'
+  const [requestedRelocationQuantity, setRequestedRelocationQuantity] = useState<number>(
+    initialPreset?.absentQuantity ?? 1
   );
-  const [coverageStartTime, setCoverageStartTime] = useState<string>('07:00');
+  const [requestedCategory, setRequestedCategory] = useState<string>(
+    initialPreset?.absentCategory || 'Técnico de enfermagem'
+  );
+  const [destinationSector, setDestinationSector] = useState<string>(
+    initialPreset?.solicitorSector || currentUser.sector || 'UTI'
+  );
+  const [coverageStartTime, setCoverageStartTime] = useState<string>(
+    initialPreset?.deficitStartTime || '07:00'
+  );
   const [coverageEndTime, setCoverageEndTime] = useState<string>('19:00');
   const [estimatedRelocationDuration, setEstimatedRelocationDuration] = useState<string>('6–12 horas');
 
@@ -327,6 +358,8 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
       solicitorUserId: currentUser.id,
       absentCategory: finalCategory,
       absentCategoryCustom: absentCategory === 'Outro' ? absentCategoryCustom : undefined,
+      absentProfessionalName: absentProfessionalName.trim() || undefined,
+      absentProfessionalRegistration: absentProfessionalRegistration.trim() || undefined,
       absentQuantity,
       affectedShift,
       affectedShiftCustom: affectedShift === 'outro' ? affectedShiftCustom : undefined,
@@ -471,6 +504,32 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
             })}
           </div>
         </div>
+
+        {initialPreset && (
+          <div
+            id="preset-prefill-banner"
+            className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200/90 flex items-start gap-3 text-amber-900 text-xs shadow-2xs animate-in fade-in"
+          >
+            <div className="p-1 rounded-lg bg-amber-200/70 text-amber-800 shrink-0 mt-0.5">
+              <Sparkles className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-amber-950">
+                  ⚡ Pré-preenchimento Automático via Painel "Meu Plantão Agora"
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200/80 text-amber-900 border border-amber-300">
+                  Equipe Faltante Detectada
+                </span>
+              </div>
+              <p className="text-amber-800 mt-1 leading-relaxed">
+                Setor <strong>{solicitorSector}</strong> • <strong>{absentQuantity}x {absentCategory}</strong>
+                {absentProfessionalName ? ` (${absentProfessionalName})` : ''} ausente(s) no plantão{' '}
+                <strong>{affectedShift}</strong>. O formulário foi pré-carregado diretamente pelo espelho de ponto.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Duplicate Alert Notice if found */}
@@ -547,7 +606,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
                       {isSectorLocked ? (
                         <span className="text-[10px] font-bold text-[#3E4D36] bg-[#8C9C82]/20 px-2 py-0.5 rounded flex items-center gap-1">
                           <Lock className="w-3 h-3 text-[#5A6D50]" />
-                          Perfil Locado
+                          Perfil Vinculado
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded flex items-center gap-1 border border-teal-200">
@@ -724,7 +783,7 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
                   </label>
                   {isSectorLocked && (
                     <span className="text-[10px] text-[#5A6D50] font-bold flex items-center gap-1 bg-[#8C9C82]/15 px-2 py-0.5 rounded">
-                      <Lock className="w-3 h-3" /> Perfil Locado
+                      <Lock className="w-3 h-3" /> Perfil Vinculado
                     </span>
                   )}
                 </div>
@@ -928,6 +987,59 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Identificação do Profissional Ausente (Quem faltou) */}
+              <div className="p-4 bg-slate-50/90 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserX className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="text-xs font-bold text-slate-800">
+                      Identificação do Colaborador Ausente (Quem faltou)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded border border-amber-200">
+                    Controle de Escala & Absenteísmo
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Nome do Colaborador que Faltou {absentQuantity > 1 ? '(ou nomes separados por vírgula)' : ''}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={
+                        absentQuantity > 1
+                          ? 'Ex: Maria dos Santos, João Carlos...'
+                          : 'Ex: Téc. Maria dos Santos Silveira'
+                      }
+                      value={absentProfessionalName}
+                      onChange={(e) => setAbsentProfessionalName(e.target.value)}
+                      className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-teal-500 focus:outline-hidden font-medium text-slate-800 placeholder:text-slate-400"
+                    />
+                    <span className="text-[10px] text-slate-500 mt-1 block">
+                      Especifique quem é o profissional que faltou ao plantão para registro histórico e deliberação da DENF.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Matrícula / COREN / Registro
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 84210 ou COREN 54321"
+                      value={absentProfessionalRegistration}
+                      onChange={(e) => setAbsentProfessionalRegistration(e.target.value)}
+                      className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-teal-500 focus:outline-hidden font-mono text-slate-800 placeholder:text-slate-400"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      Opcional (identificação na escala)
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -942,6 +1054,29 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
                   Qual o motivo administrativo da ausência do colaborador?
                 </p>
               </div>
+
+              {/* Identificação do profissional já preenchida na Etapa 2 */}
+              {absentProfessionalName && (
+                <div className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700">
+                  <div className="flex items-center gap-2">
+                    <UserX className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>
+                      Colaborador ausente (definido na Etapa 2): <strong className="text-slate-900">{absentProfessionalName}</strong>{' '}
+                      <span className="text-slate-500 font-normal">
+                        ({absentCategory === 'Outro' ? absentCategoryCustom : absentCategory}
+                        {absentProfessionalRegistration ? ` • Reg: ${absentProfessionalRegistration}` : ''})
+                      </span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(2)}
+                    className="text-[10px] text-teal-700 hover:text-teal-900 font-bold underline shrink-0 ml-2"
+                  >
+                    Alterar na Etapa 2
+                  </button>
+                </div>
+              )}
 
               {/* LGPD Safety Notice */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2.5 text-blue-900 text-xs">
@@ -1663,9 +1798,15 @@ export const NewRequestWizard: React.FC<NewRequestWizardProps> = ({
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Profissional Ausente</span>
-                  <span className="font-bold text-slate-800 break-words">
+                  <span className="font-bold text-slate-800 break-words block">
                     {absentQuantity}x {absentCategory === 'Outro' ? absentCategoryCustom : absentCategory}
                   </span>
+                  {absentProfessionalName && (
+                    <span className="text-xs text-amber-900 font-semibold block mt-0.5">
+                      Colaborador: {absentProfessionalName}
+                      {absentProfessionalRegistration ? ` (${absentProfessionalRegistration})` : ''}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-bold">Plantão Afetado</span>

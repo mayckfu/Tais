@@ -14,10 +14,12 @@ import {
   Settings,
   X,
   CheckCircle2,
+  Radio,
 } from 'lucide-react';
 
 export type NavigationTab =
   | 'dashboard'
+  | 'my_shift'
   | 'new_request'
   | 'requests'
   | 'denf_queue'
@@ -81,6 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isTabActive = (tabKey: string) => {
     if (tabKey === 'dashboard') return currentTab === 'dashboard';
+    if (tabKey === 'my_shift') return currentTab === 'my_shift' || currentTab === 'meu_plantao' || currentTab === 'censo_escala';
     if (tabKey === 'new_request') return currentTab === 'new_request' || currentTab === 'nova_solicitacao';
     if (tabKey === 'requests') return currentTab === 'requests' || currentTab === 'solicitacoes';
     if (tabKey === 'denf_queue') return currentTab === 'denf_queue' || currentTab === 'pendentes_analise';
@@ -152,6 +155,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <LayoutDashboard className={`w-4 h-4 shrink-0 ${isTabActive('dashboard') ? 'text-white' : 'text-[#8C9C82]'}`} />
           <span>Dashboard</span>
+        </button>
+
+        <button
+          id="nav-tab-meu-plantao"
+          onClick={() => handleItemClick('my_shift')}
+          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all min-h-[40px] ${
+            isTabActive('my_shift')
+              ? 'bg-[#5A5A40] text-white font-semibold shadow-xs'
+              : 'text-[#7D7D72] hover:bg-[#F9F7F2] hover:text-[#2D2D2A]'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Radio className={`w-4 h-4 shrink-0 ${isTabActive('my_shift') ? 'text-[#D1A661] animate-pulse' : 'text-[#8C9C82]'}`} />
+            <span>Meu Plantão Agora</span>
+          </div>
+          <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase ${
+            isTabActive('my_shift')
+              ? 'bg-[#D1A661] text-[#2D2D2A]'
+              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+          }`}>
+            Ao Vivo
+          </span>
         </button>
 
         <button

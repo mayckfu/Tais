@@ -231,6 +231,8 @@ export interface DeficitRequest {
   // Etapa 2: Caracterização do Déficit
   absentCategory: string;
   absentCategoryCustom?: string;
+  absentProfessionalName?: string; // Nome do colaborador que faltou
+  absentProfessionalRegistration?: string; // Matrícula / Registro funcional do profissional ausente
   absentQuantity: number;
   affectedShift: ShiftType;
   affectedShiftCustom?: string;
@@ -400,3 +402,54 @@ export const isAlertRelevantToUser = (alert: SystemAlert, user: User): boolean =
 
   return false;
 };
+
+// ==========================================
+// PAINEL "MEU PLANTÃO AGORA" (CENSO E ESCALA)
+// ==========================================
+
+export type ShiftPresenceStatus = 'presente' | 'ausente' | 'atrasado' | 'remanejado_recebido';
+
+export interface ShiftStaffMember {
+  id: string;
+  name: string;
+  category: 'Enfermeiro' | 'Técnico de enfermagem' | 'Auxiliar de enfermagem' | string;
+  registration: string;
+  scheduledRole: string; // ex: 'Enfermeira Chefe', 'Técnico Medicamentos'
+  scheduledHours: string; // ex: '07:00 - 19:00'
+  status: ShiftPresenceStatus;
+  checkInTime?: string;
+  absenceReason?: AbsenceReason;
+  absenceNotes?: string;
+  isReinforcement?: boolean;
+  originSector?: string;
+}
+
+export interface SectorShiftData {
+  sector: string;
+  shift: ShiftType;
+  date: string;
+  totalBeds: number;
+  occupiedBeds: number;
+  criticalPatients: number; // Ventilação mecânica / DVA
+  semiCriticalPatients: number;
+  stablePatients: number;
+  staff: ShiftStaffMember[];
+  cofenRatioNurseTarget: number; // Leitos por enfermeiro recomendados (ex: 8)
+  cofenRatioTechTarget: number; // Leitos por técnico recomendados (ex: 3)
+  lastUpdated: string;
+}
+
+export interface NewRequestPreset {
+  solicitorSector?: string;
+  absentCategory?: string;
+  absentCategoryCustom?: string;
+  absentProfessionalName?: string;
+  absentProfessionalRegistration?: string;
+  absentQuantity?: number;
+  affectedShift?: ShiftType;
+  deficitStartTime?: string;
+  absenceReason?: AbsenceReason;
+  absenceReasonCustom?: string;
+  initialStep?: number;
+  notes?: string;
+}

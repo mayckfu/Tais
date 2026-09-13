@@ -1,6 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DeficitRequest, ClosureResolutionType, User, ManagementFollowUp } from '../types';
-import { CheckCircle2, Clock, Calendar, AlertTriangle, ShieldCheck } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock,
+  Calendar,
+  AlertTriangle,
+  ShieldCheck,
+  Sparkles,
+  RotateCcw,
+  Timer,
+  Info,
+} from 'lucide-react';
 
 interface ClosureModalProps {
   request: DeficitRequest;
@@ -12,32 +22,212 @@ interface ClosureModalProps {
   onClose: () => void;
 }
 
+// Converte string de horário (ex: '07:30' ou '07:30:00') em minutos do dia
+function parseTimeToMinutes(timeStr?: string): number | null {
+  if (!timeStr) return null;
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
+  if (match) {
+    const hours = parseInt(match[1], 10);
+    const mins = parseInt(match[2], 10);
+    if (!isNaN(hours) && !isNaN(mins)) {
+      return hours * 60 + mins;
+    }
+  }
+  return null;
+}
+
+// Calcula a diferença em minutos entre dois horários HH:mm (suporta virada de noite)
+function calculateDiffInMinutes(start?: string, end?: string): number | null {
+  const startMin = parseTimeToMinutes(start);
+  const endMin = parseTimeToMinutes(end);
+  if (startMin === null || endMin === null) return null;
+  let diff = endMin - startMin;
+  if (diff <= 0) diff += 24 * 60; // Virada de noite (ex: 19:00 às 07:00 = 720 min)
+  return diff;
+}
+
+// Formata minutos em "Xh Ymin"
+function formatMinutesToHours(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m < 10 ? '0' : ''}${m}min`;
+}
+
+// Motor de cálculo automático baseado naquilo que foi executado na ocorrência
+export function computeAutoResolutionDetails(
+  request: DeficitRequest,
+  type: ClosureResolutionType
+): {
+  suggestedMinutes: number;
+  reason: string;
+  options: { label: string; minutes: number; description: string }[];
+} {
+  const options: { label: string; minutes: number; description: string }[] = [];
+
+  const shiftDurationMap: Record<string, number> = {
+    'Manhã': 360,
+    'Tarde': 360,
+    'Noite': 720,
+    '12 horas': 720,
+    '24 horas': 1440,
+    '6 horas': 360,
+  };
+  const shiftMinutes = request.affectedShift
+    ? shiftDurationMap[request.affectedShift] || 360
+    : 360;
+  const shiftName = request.affectedShift || 'Plantão';
+
+  // Analisa remanejamentos vinculados
+  const relocations = request.relocations || [];
+  const firstRel = relocations.length > 0 ? relocations[0] : undefined;
+
+  // 1. Duração da Cobertura de Remanejamento
+  let relocationCoverageMinutes = 0;
+  let relocationCoverageExplanation = '';
+
+  if (firstRel?.actualDurationMinutes && firstRel.actualDurationMinutes > 0) {
+    relocationCoverageMinutes = firstRel.actualDurationMinutes;
+    relocationCoverageExplanation = `Duração registrada no remanejamento (${firstRel.actualDurationMinutes} min)`;
+  } else if (firstRel?.startTime && firstRel?.endTime) {
+    const diff = calculateDiffInMinutes(firstRel.startTime, firstRel.endTime);
+    if (diff && diff > 0 && diff <= 1440) {
+      relocationCoverageMinutes = diff;
+      relocationCoverageExplanation = `Horário de atuação das ${firstRel.startTime} às ${firstRel.endTime} (${diff} min)`;
+    }
+  } else if (request.coverageStartTime && request.coverageEndTime) {
+    const diff = calculateDiffInMinutes(request.coverageStartTime, request.coverageEndTime);
+    if (diff && diff > 0 && diff <= 1440) {
+      relocationCoverageMinutes = diff;
+      relocationCoverageExplanation = `Janela de cobertura das ${request.coverageStartTime} às ${request.coverageEndTime} (${diff} min)`;
+    }
+  }
+
+  if (!relocationCoverageMinutes) {
+    relocationCoverageMinutes = shiftMinutes;
+    relocationCoverageExplanation = `Duração padrão do turno ${shiftName} (${shiftMinutes} min / ${Math.round(shiftMinutes / 60)}h)`;
+  }
+
+  // 2. Tempo de Resposta até Chegada ao Posto
+  let responseTimeToArrival = 0;
+  if (firstRel) {
+    const arrivalTime = firstRel.confirmedArrivalAt || firstRel.startTime;
+    const diff = calculateDiffInMinutes(request.requestTime, arrivalTime);
+    if (diff && diff > 0 && diff <= 240) {
+      responseTimeToArrival = diff;
+    }
+  }
+  if (!responseTimeToArrival) {
+    responseTimeToArrival = 40; // Média operacional hospitalar
+  }
+
+  // 3. Tempo de Resolução Interna
+  let internalSolutionMinutes = 40;
+  if (request.hasInternalAttempt && request.internalAlternativesEvaluated?.length > 0) {
+    internalSolutionMinutes = 35;
+  }
+
+  // Opções rápidas para seleção
+  options.push({
+    label: 'Cobertura Efetiva',
+    minutes: relocationCoverageMinutes,
+    description: `Turno ${shiftName} (${formatMinutesToHours(relocationCoverageMinutes)})`,
+  });
+
+  options.push({
+    label: 'Tempo até o Posto',
+    minutes: responseTimeToArrival,
+    description: `Abertura (${request.requestTime}) até chegada (${formatMinutesToHours(responseTimeToArrival)})`,
+  });
+
+  options.push({
+    label: 'Solução Interna',
+    minutes: internalSolutionMinutes,
+    description: `Reorganização local (${formatMinutesToHours(internalSolutionMinutes)})`,
+  });
+
+  if (shiftMinutes === 360) {
+    options.push({
+      label: 'Turno 12h',
+      minutes: 720,
+      description: 'Cobertura integral estendida (720 min)',
+    });
+  }
+
+  let suggestedMinutes = 360;
+  let reason = '';
+
+  switch (type) {
+    case 'solucionado_remanejamento':
+      suggestedMinutes = relocationCoverageMinutes;
+      reason = `Automático com base no remanejamento: ${relocationCoverageExplanation}.`;
+      break;
+
+    case 'solucionado_internamente':
+      suggestedMinutes = internalSolutionMinutes;
+      reason = `Automático com base na resolução interna da equipe e reorganização local (${internalSolutionMinutes} min).`;
+      break;
+
+    case 'parcialmente_solucionado':
+      suggestedMinutes = Math.min(relocationCoverageMinutes, Math.round(shiftMinutes / 2)) || 180;
+      reason = `Automático com base na cobertura parcial executada no plantão (${suggestedMinutes} min / ${formatMinutesToHours(suggestedMinutes)}).`;
+      break;
+
+    case 'nao_solucionado':
+      suggestedMinutes = responseTimeToArrival || 30;
+      reason = `Automático com base no tempo decorrido até a deliberação de indisponibilidade (${suggestedMinutes} min).`;
+      break;
+
+    case 'cancelado':
+      suggestedMinutes = 20;
+      reason = 'Automático com base no tempo transcorrido até o cancelamento formal (20 min).';
+      break;
+
+    default:
+      suggestedMinutes = relocationCoverageMinutes;
+      reason = `Automático com base na cobertura do turno (${suggestedMinutes} min).`;
+  }
+
+  return { suggestedMinutes, reason, options };
+}
+
 export const ClosureModal: React.FC<ClosureModalProps> = ({
   request,
   currentUser,
   onConfirmClosure,
   onClose,
 }) => {
-  const [resolutionType, setResolutionType] = useState<ClosureResolutionType>(
+  const initialResolutionType: ClosureResolutionType =
     request.status === 'remanejamento_em_andamento' || request.status === 'remanejamento_autorizado'
       ? 'solucionado_remanejamento'
       : request.status === 'solucao_interna'
       ? 'solucionado_internamente'
-      : 'solucionado_remanejamento'
-  );
+      : 'solucionado_remanejamento';
+
+  const [resolutionType, setResolutionType] = useState<ClosureResolutionType>(initialResolutionType);
 
   const [effectiveness, setEffectiveness] = useState<'eficaz' | 'parcialmente_eficaz' | 'ineficaz'>(
     'eficaz'
   );
 
-  // Auto calculate resolution minutes from creation to now
-  const defaultMinutes = Math.max(
-    15,
-    Math.round((Date.now() - new Date(request.createdAt).getTime()) / 60000)
-  );
-  const [resolutionMinutes, setResolutionMinutes] = useState<number>(defaultMinutes);
+  // Cálculo automático baseado em evidências do que foi feito
+  const autoDetails = useMemo(() => {
+    return computeAutoResolutionDetails(request, resolutionType);
+  }, [request, resolutionType]);
+
+  const [resolutionMinutes, setResolutionMinutes] = useState<number>(() => {
+    return computeAutoResolutionDetails(request, initialResolutionType).suggestedMinutes;
+  });
 
   const [closureNotes, setClosureNotes] = useState<string>('');
+
+  // Troca de tipo de desfecho recalcula automaticamente o tempo
+  const handleResolutionTypeChange = (newType: ClosureResolutionType) => {
+    setResolutionType(newType);
+    const updatedAuto = computeAutoResolutionDetails(request, newType);
+    setResolutionMinutes(updatedAuto.suggestedMinutes);
+  };
 
   // Follow-up requirement (Section 17)
   const [needsFollowUp, setNeedsFollowUp] = useState<boolean>(request.criticality === 'critica');
@@ -80,11 +270,37 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
     }
 
     // Sincroniza e finaliza todos os remanejamentos ativos vinculados
-    const synchronizedRelocations = (request.relocations || []).map((rel) => ({
-      ...rel,
-      status: (rel.status === 'cancelado' ? 'cancelado' : 'finalizado') as any,
-      endTime: rel.endTime || nowTime,
-    }));
+    const synchronizedRelocations = (request.relocations || []).map((rel) => {
+      const finishTime = rel.endTime || nowTime;
+      const computedDuration =
+        rel.actualDurationMinutes ||
+        calculateDiffInMinutes(rel.startTime, finishTime) ||
+        resolutionMinutes;
+      return {
+        ...rel,
+        status: (rel.status === 'cancelado' ? 'cancelado' : 'finalizado') as any,
+        endTime: finishTime,
+        actualDurationMinutes: computedDuration,
+      };
+    });
+
+    const timeCategory: 'ate_30m' | '30m_1h' | '1h_2h' | '2h_4h' | 'mais_4h' =
+      resolutionMinutes <= 30
+        ? 'ate_30m'
+        : resolutionMinutes <= 60
+        ? '30m_1h'
+        : resolutionMinutes <= 120
+        ? '1h_2h'
+        : resolutionMinutes <= 240
+        ? '2h_4h'
+        : 'mais_4h';
+
+    const resolvedStatus =
+      resolutionType === 'solucionado_remanejamento' || resolutionType === 'solucionado_internamente'
+        ? 'sim'
+        : resolutionType === 'parcialmente_solucionado'
+        ? 'parcialmente'
+        : 'nao';
 
     const updated: DeficitRequest = {
       ...request,
@@ -95,8 +311,10 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
       relocations: synchronizedRelocations,
       closure: {
         resolutionType,
+        resolvedStatus,
         closedAt: `${today} ${nowTime}`,
         totalResolutionMinutes: resolutionMinutes,
+        resolutionTimeCategory: timeCategory,
         conductEffectiveness: effectiveness,
         closureNotes,
         closedBy: currentUser.name,
@@ -112,7 +330,7 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
           id: `tl-close-${Date.now()}`,
           timestamp: nowTime,
           title: `Ocorrência e Remanejamentos Encerrados: ${resolutionType.replace('_', ' ').toUpperCase()}`,
-          description: `Desfecho registrado pelo Enfermeiro de Plantão (${currentUser.name}). Todos os remanejamentos ativos foram sincronizados e finalizados. Tempo de resolução: ${resolutionMinutes} min. Efetividade: ${effectiveness}.`,
+          description: `Desfecho registrado pelo Enfermeiro de Plantão (${currentUser.name}). Todos os remanejamentos ativos foram sincronizados e finalizados. Tempo de resolução: ${resolutionMinutes} min (${formatMinutesToHours(resolutionMinutes)}). Efetividade: ${effectiveness}.`,
           user: currentUser.name,
           userRole: currentUser.roleTitle,
           type: 'closure',
@@ -188,7 +406,7 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
             <label className="block font-bold text-[#2D2D2A] mb-1">Tipo de Desfecho Final *</label>
             <select
               value={resolutionType}
-              onChange={(e) => setResolutionType(e.target.value as ClosureResolutionType)}
+              onChange={(e) => handleResolutionTypeChange(e.target.value as ClosureResolutionType)}
               className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white font-medium text-[#2D2D2A] focus:border-[#5A5A40] focus:ring-[#8C9C82]"
             >
               <option value="solucionado_remanejamento">Solucionado com Remanejamento</option>
@@ -199,34 +417,96 @@ export const ClosureModal: React.FC<ClosureModalProps> = ({
             </select>
           </div>
 
-          {/* Time & Effectiveness */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-[#7D7D72] mb-1">
-                Tempo Total de Resolução (minutos)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={resolutionMinutes}
-                onChange={(e) => setResolutionMinutes(parseInt(e.target.value, 10) || 0)}
-                className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white font-mono font-bold text-[#2D2D2A] focus:border-[#5A5A40] focus:ring-[#8C9C82]"
-              />
+          {/* Tempo Total de Resolução Automático e Efetividade */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-[#2D2D2A]">
+                    Tempo Total de Resolução *
+                  </label>
+                  <span className="text-[11px] font-bold text-[#5A5A40] bg-[#E8E6D9]/50 px-2 py-0.5 rounded-md">
+                    {formatMinutesToHours(resolutionMinutes)}
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    value={resolutionMinutes}
+                    onChange={(e) => setResolutionMinutes(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                    className="w-full p-2.5 pr-14 rounded-xl border border-[#E8E6D9] bg-white font-mono font-bold text-[#2D2D2A] focus:border-[#5A5A40] focus:ring-[#8C9C82]"
+                  />
+                  <span className="absolute right-3 top-2.5 text-xs text-[#7D7D72] font-semibold">
+                    minutos
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#7D7D72] mb-1">
+                  Efetividade da Conduta Adotada *
+                </label>
+                <select
+                  value={effectiveness}
+                  onChange={(e) => setEffectiveness(e.target.value as any)}
+                  className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white font-medium text-[#2D2D2A] focus:border-[#5A5A40] focus:ring-[#8C9C82]"
+                >
+                  <option value="eficaz">Eficaz</option>
+                  <option value="parcialmente_eficaz">Parcialmente Eficaz</option>
+                  <option value="ineficaz">Ineficaz</option>
+                </select>
+              </div>
             </div>
 
-            <div>
-              <label className="block font-bold text-[#7D7D72] mb-1">
-                Efetividade da Conduta Adotada *
-              </label>
-              <select
-                value={effectiveness}
-                onChange={(e) => setEffectiveness(e.target.value as any)}
-                className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white font-medium text-[#2D2D2A] focus:border-[#5A5A40] focus:ring-[#8C9C82]"
-              >
-                <option value="eficaz">Eficaz</option>
-                <option value="parcialmente_eficaz">Parcialmente Eficaz</option>
-                <option value="ineficaz">Ineficaz</option>
-              </select>
+            {/* Painel de Cálculo Automático Baseado no que foi feito */}
+            <div className="p-3 bg-[#F4F3EE] rounded-2xl border border-[#E8E6D9] space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <Sparkles className="w-4 h-4 text-[#5A5A40] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-[#2D2D2A] block text-[11px]">
+                      Cálculo Automático por Conduta Realizada
+                    </span>
+                    <p className="text-[11px] text-[#5A5A40] mt-0.5 leading-snug">
+                      {autoDetails.reason}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setResolutionMinutes(autoDetails.suggestedMinutes)}
+                  className="shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-[#5A5A40] hover:text-[#2D2D2A] hover:underline bg-white px-2 py-1 rounded-lg border border-[#E8E6D9] shadow-2xs"
+                  title="Restaurar tempo calculado automaticamente"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Restaurar ({autoDetails.suggestedMinutes}m)</span>
+                </button>
+              </div>
+
+              {/* Botões rápidos de seleção de acordo com o cenário */}
+              <div className="pt-1.5 border-t border-[#E8E6D9]/70">
+                <span className="text-[10px] text-[#7D7D72] font-semibold block mb-1">
+                  Opções de cálculo rápido segundo o registro:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {autoDetails.options.map((opt) => (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setResolutionMinutes(opt.minutes)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-all border ${
+                        resolutionMinutes === opt.minutes
+                          ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-2xs'
+                          : 'bg-white text-[#5A5A40] border-[#E8E6D9] hover:bg-[#E8E6D9]/40 hover:text-[#2D2D2A]'
+                      }`}
+                    >
+                      {opt.label}: {opt.minutes} min ({opt.description})
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 

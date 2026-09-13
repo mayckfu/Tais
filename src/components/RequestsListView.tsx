@@ -91,7 +91,8 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
         const matchesSolicitor = r.solicitorName.toLowerCase().includes(term);
         const matchesCat = r.absentCategory.toLowerCase().includes(term);
         const matchesReason = r.absenceReason.toLowerCase().includes(term);
-        if (!matchesProto && !matchesSector && !matchesSolicitor && !matchesCat && !matchesReason) {
+        const matchesAbsentName = r.absentProfessionalName?.toLowerCase().includes(term);
+        if (!matchesProto && !matchesSector && !matchesSolicitor && !matchesCat && !matchesReason && !matchesAbsentName) {
           return false;
         }
       }
@@ -456,6 +457,11 @@ export const RequestsListView: React.FC<RequestsListViewProps> = ({
                           <div className="font-bold text-slate-900">
                             {req.absentQuantity}x {req.absentCategory}
                           </div>
+                          {req.absentProfessionalName && (
+                            <div className="text-[11px] font-semibold text-amber-900 truncate max-w-[190px]" title={`Colaborador ausente: ${req.absentProfessionalName}`}>
+                              Ausente: {req.absentProfessionalName}
+                            </div>
+                          )}
                           <div className="text-[11px] text-slate-500">
                             Plantão: {req.affectedShift} às {req.deficitStartTime}
                           </div>
