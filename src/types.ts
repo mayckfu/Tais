@@ -418,6 +418,9 @@ export interface RegisteredProfessional {
   sector: string;
   defaultHours?: string;
   phone?: string;
+  email?: string;
+  status?: 'ativo' | 'inativo';
+  notes?: string;
 }
 
 export interface ShiftStaffMember {

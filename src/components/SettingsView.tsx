@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SystemSettings, User, UserRole } from '../types';
+import { SystemSettings, User, UserRole, RegisteredProfessional } from '../types';
 import {
   Settings,
   Save,
@@ -16,12 +16,20 @@ import {
   Lock,
   Check,
   X,
+  UserCheck,
+  Briefcase,
+  Search,
+  Filter,
 } from 'lucide-react';
 import {
   getStoredUsers,
   addUser,
   deleteUser,
   toggleUserStatus,
+  getStoredRegisteredProfessionals,
+  saveRegisteredProfessional,
+  deleteRegisteredProfessional,
+  toggleRegisteredProfessionalStatus,
 } from '../services/storage';
 
 interface SettingsViewProps {
@@ -39,9 +47,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onResetDemoData,
   onSwitchUser,
 }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'slas' | 'catalogs' | 'matrix' | 'maintenance'>('users');
+  const isAdmin = currentUser.role === 'admin';
+  const isDiretorDENF = currentUser.role === 'denf';
+  const isCoordenador = currentUser.role === 'coordenador';
+  const isEnfermeiro = currentUser.role === 'solicitante';
+
+  const [activeTab, setActiveTab] = useState<'staff_registry' | 'users' | 'slas' | 'catalogs' | 'matrix' | 'maintenance'>('staff_registry');
   const [formData, setFormData] = useState<SystemSettings>(settings);
   const [usersList, setUsersList] = useState<User[]>(() => getStoredUsers());
+  const [professionalsList, setProfessionalsList] = useState<RegisteredProfessional[]>(() =>
+    getStoredRegisteredProfessionals()
+  );
+
+  // Filtro de profissionais
+  const [profSearch, setProfSearch] = useState('');
+  const [profSectorFilter, setProfSectorFilter] = useState<string>(
+    isCoordenador ? currentUser.sector : 'TODOS'
+  );
+
+  // Form de Novo Profissional de Enfermagem
+  const [showAddProfModal, setShowAddProfModal] = useState(false);
+  const [newProfName, setNewProfName] = useState('');
+  const [newProfCategory, setNewProfCategory] = useState<'Enfermeiro' | 'Técnico de enfermagem' | 'Auxiliar de enfermagem'>('Técnico de enfermagem');
+  const [newProfReg, setNewProfReg] = useState('');
+  const [newProfRole, setNewProfRole] = useState('Assistencial');
+  const [newProfSector, setNewProfSector] = useState(isCoordenador ? currentUser.sector : 'UTI');
+  const [newProfHours, setNewProfHours] = useState('07:00 - 19:00');
+  const [newProfPhone, setNewProfPhone] = useState('');
 
   // New User Form State
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -49,7 +81,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('solicitante');
   const [newUserRoleTitle, setNewUserRoleTitle] = useState('Enfermeiro de Plantão');
-  const [newUserSector, setNewUserSector] = useState('UTI');
+  const [newUserSector, setNewUserSector] = useState(isCoordenador ? currentUser.sector : 'UTI');
   const [newUserReg, setNewUserReg] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
 
@@ -59,10 +91,49 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [successMsg, setSuccessMsg] = useState(false);
   const [resetSuccessMsg, setResetSuccessMsg] = useState(false);
 
-  const isAdmin = currentUser.role === 'admin';
-
   const refreshUsers = () => {
     setUsersList(getStoredUsers());
+  };
+
+  const refreshProfessionals = () => {
+    setProfessionalsList(getStoredRegisteredProfessionals());
+  };
+
+  const handleCreateProfessional = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProfName.trim()) return;
+
+    const targetSector = isCoordenador ? currentUser.sector : newProfSector;
+
+    saveRegisteredProfessional({
+      name: newProfName.trim(),
+      category: newProfCategory,
+      registration: newProfReg.trim() || 'COREN-SP',
+      defaultRole: newProfRole.trim() || 'Assistencial',
+      sector: targetSector,
+      defaultHours: newProfHours.trim() || '07:00 - 19:00',
+      phone: newProfPhone.trim() || '(11) 98000-0000',
+      status: 'ativo',
+    });
+
+    refreshProfessionals();
+    setShowAddProfModal(false);
+    setNewProfName('');
+    setNewProfReg('');
+    setNewProfRole('Assistencial');
+    setNewProfPhone('');
+  };
+
+  const handleDeleteProfessional = (id: string) => {
+    if (confirm('Tem certeza que deseja remover este profissional do banco hospitalar?')) {
+      deleteRegisteredProfessional(id);
+      refreshProfessionals();
+    }
+  };
+
+  const handleToggleProfStatus = (id: string) => {
+    toggleRegisteredProfessionalStatus(id);
+    refreshProfessionals();
   };
 
   const handleCreateUser = (e: React.FormEvent) => {
@@ -159,8 +230,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTimeout(() => setSuccessMsg(false), 3000);
   };
 
-  // Se o usuário logado não for Admin, mostramos o bloqueio de segurança com opção de alternar
-  if (!isAdmin) {
+  // Se o usuário logado for Enfermeiro de Plantão (solicitante), mostramos o bloqueio com explicação de governança
+  if (isEnfermeiro) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="bg-[#F9F7F2] border border-[#E8E6D9] rounded-3xl p-8 text-center space-y-4">
@@ -169,26 +240,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
           <div className="max-w-md mx-auto space-y-2">
             <h2 className="font-serif text-2xl font-bold text-[#2D2D2A]">
-              Módulo Restrito à Governança & TI
+              Governança & Cadastro Institucional
             </h2>
             <p className="text-xs sm:text-sm text-[#7D7D72] leading-relaxed">
               Você está conectado como <strong>{currentUser.name}</strong> ({currentUser.roleTitle}).
-              A gestão de contas de acesso, parametrização dos SLAs da plataforma e redefinição de dados é de competência exclusiva do <strong>Administrador do Sistema</strong>.
+              O cadastro permanente de funcionários e a parametrização do hospital competem à <strong>Diretoria de Enfermagem (DENF)</strong>, aos <strong>Coordenadores de Setor</strong> e ao <strong>Administrador do Sistema</strong>.
+            </p>
+            <p className="text-xs text-[#5A5A40] font-medium">
+              Como Enfermeiro de Plantão, você tem autonomia na aba <strong>Meu Plantão Agora</strong> para compor o turno, apontar presenças e registrar trocas/extras.
             </p>
           </div>
 
           <div className="pt-4 border-t border-[#E8E6D9] flex flex-wrap justify-center gap-3">
             {onSwitchUser && (
-              <button
-                onClick={() => {
-                  const adminUser = usersList.find((u) => u.role === 'admin') || getStoredUsers().find((u) => u.role === 'admin');
-                  if (adminUser) onSwitchUser(adminUser);
-                }}
-                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#2D2D2A] hover:bg-[#1A1A18] text-white shadow-xs transition-all inline-flex items-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4 text-[#D1A661]" />
-                <span>Alternar para Administrador (Carlos Eduardo)</span>
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    const coord = usersList.find((u) => u.role === 'coordenador');
+                    if (coord) onSwitchUser(coord);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#D1A661]/20 text-[#7A581E] hover:bg-[#D1A661]/30 border border-[#D1A661]/40 transition-all inline-flex items-center gap-2"
+                >
+                  <Briefcase className="w-4 h-4 text-[#7A581E]" />
+                  <span>Alternar para Coordenador (Roberto Almeida)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const denf = usersList.find((u) => u.role === 'denf');
+                    if (denf) onSwitchUser(denf);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white transition-all inline-flex items-center gap-2"
+                >
+                  <UserCheck className="w-4 h-4 text-white" />
+                  <span>Alternar para Diretora DENF (Dra. Patrícia)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const adminUser = usersList.find((u) => u.role === 'admin') || getStoredUsers().find((u) => u.role === 'admin');
+                    if (adminUser) onSwitchUser(adminUser);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#2D2D2A] hover:bg-[#1A1A18] text-white shadow-xs transition-all inline-flex items-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4 text-[#D1A661]" />
+                  <span>Alternar para Administrador (Carlos Eduardo)</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -203,49 +299,73 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#2D2D2A] text-white uppercase tracking-wider">
-              Governança & TI
+              {isAdmin ? 'Governança & TI' : isDiretorDENF ? 'Diretoria de Enfermagem' : 'Coordenação de Setor'}
             </span>
-            <span className="text-xs text-[#7D7D72]">Sustentação da Plataforma</span>
+            <span className="text-xs text-[#7D7D72]">
+              {isAdmin ? 'Sustentação da Plataforma' : 'Gestão do Quadro de Enfermagem'}
+            </span>
           </div>
           <h2 className="font-serif font-bold text-2xl tracking-tight text-[#2D2D2A] mt-1">
-            Painel de Administração & Usuários
+            {isAdmin ? 'Painel de Administração, Usuários & Equipes' : 'Gestão do Banco de Profissionais & Equipes'}
           </h2>
           <p className="text-xs text-[#7D7D72] mt-0.5">
-            Gestão de acessos, segregação de funções, catálogos mestres e parametrização de contingências.
+            {isAdmin
+              ? 'Gestão integral de acessos, segregação de funções, cadastro de colaboradores e parametrização hospitalar.'
+              : isDiretorDENF
+              ? 'Controle central do cadastro institucional de Enfermeiros, Técnicos e Auxiliares em todos os setores hospitalares.'
+              : `Gestão dos colaboradores e escala base lotados no setor ${currentUser.sector}.`}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {successMsg && (
-            <span className="inline-flex items-center gap-1.5 text-xs text-[#5A5A40] font-bold px-3 py-1.5 rounded-xl bg-[#8C9C82]/20 border border-[#8C9C82]/30 animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4" />
-              Parâmetros Salvos
-            </span>
-          )}
-          <button
-            id="btn-save-settings"
-            onClick={handleSave}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs transition-all"
-          >
-            <Save className="w-4 h-4" />
-            <span>Salvar Alterações</span>
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            {successMsg && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-[#5A5A40] font-bold px-3 py-1.5 rounded-xl bg-[#8C9C82]/20 border border-[#8C9C82]/30 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4" />
+                Parâmetros Salvos
+              </span>
+            )}
+            <button
+              id="btn-save-settings"
+              onClick={handleSave}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs transition-all"
+            >
+              <Save className="w-4 h-4" />
+              <span>Salvar Alterações</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Navigation Sub-Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-[#E8E6D9] pb-3">
+        {/* ABA PRINCIPAL: BANCO DE PROFISSIONAIS (Acessível a DENF, Coord e Admin) */}
         <button
-          onClick={() => setActiveTab('users')}
+          onClick={() => setActiveTab('staff_registry')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2 ${
-            activeTab === 'users'
+            activeTab === 'staff_registry'
               ? 'bg-[#5A5A40] text-white shadow-xs'
               : 'bg-white text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]'
           }`}
         >
-          <Users className="w-4 h-4" />
-          <span>Gestão de Usuários ({usersList.length})</span>
+          <UserCheck className="w-4 h-4" />
+          <span>Banco de Profissionais ({professionalsList.length})</span>
         </button>
+
+        {/* ABA USUÁRIOS (Admin e DENF) */}
+        {(isAdmin || isDiretorDENF) && (
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2 ${
+              activeTab === 'users'
+                ? 'bg-[#5A5A40] text-white shadow-xs'
+                : 'bg-white text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Contas de Acesso ({usersList.length})</span>
+          </button>
+        )}
 
         <button
           onClick={() => setActiveTab('matrix')}
@@ -256,45 +376,362 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
-          <span>Matriz de Papéis & Competências (RBAC)</span>
+          <span>Matriz de Papéis (RBAC)</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('slas')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2 ${
-            activeTab === 'slas'
-              ? 'bg-[#5A5A40] text-white shadow-xs'
-              : 'bg-white text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]'
-          }`}
-        >
-          <Clock className="w-4 h-4" />
-          <span>SLA & Prazos Clínicos</span>
-        </button>
+        {isAdmin && (
+          <>
+            <button
+              onClick={() => setActiveTab('slas')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2 ${
+                activeTab === 'slas'
+                  ? 'bg-[#5A5A40] text-white shadow-xs'
+                  : 'bg-white text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span>SLA & Prazos Clínicos</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('catalogs')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2 ${
-            activeTab === 'catalogs'
-              ? 'bg-[#5A5A40] text-white shadow-xs'
-              : 'bg-white text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          <span>Setores & Categorias</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('catalogs')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2 ${
+                activeTab === 'catalogs'
+                  ? 'bg-[#5A5A40] text-white shadow-xs'
+                  : 'bg-white text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Setores & Categorias</span>
+            </button>
 
-        <button
-          onClick={() => setActiveTab('maintenance')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2 ${
-            activeTab === 'maintenance'
-              ? 'bg-[#5A5A40] text-white shadow-xs'
-              : 'bg-white text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]'
-          }`}
-        >
-          <RotateCcw className="w-4 h-4" />
-          <span>Manutenção & Banco</span>
-        </button>
+            <button
+              onClick={() => setActiveTab('maintenance')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-2 ${
+                activeTab === 'maintenance'
+                  ? 'bg-[#5A5A40] text-white shadow-xs'
+                  : 'bg-white text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]'
+              }`}
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>Manutenção & Banco</span>
+            </button>
+          </>
+        )}
       </div>
+
+      {/* TAB 0: BANCO DE PROFISSIONAIS DE ENFERMAGEM */}
+      {activeTab === 'staff_registry' && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F9F7F2] p-4 rounded-2xl border border-[#E8E6D9]">
+            <div>
+              <h3 className="font-bold text-sm text-[#2D2D2A] flex items-center gap-2">
+                <span>Cadastro Institucional de Profissionais de Enfermagem</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[#E8E6D9] text-[#5A5A40] font-normal">
+                  {professionalsList.length} cadastrados
+                </span>
+              </h3>
+              <p className="text-xs text-[#7D7D72]">
+                {isCoordenador && !isAdmin && !isDiretorDENF
+                  ? `Colaboradores do setor ${currentUser.sector}. Eles ficam disponíveis para escalação pelo Enfermeiro de Plantão.`
+                  : 'Quadro homologado de Enfermeiros, Técnicos e Auxiliares disponíveis para os setores hospitalares.'}
+              </p>
+            </div>
+
+            <button
+              id="btn-add-staff-member"
+              onClick={() => setShowAddProfModal(true)}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs transition-all inline-flex items-center gap-1.5 self-start sm:self-auto"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Adicionar Colaborador</span>
+            </button>
+          </div>
+
+          {/* Barra de Filtros e Busca */}
+          <div className="flex flex-col sm:flex-row gap-3 bg-white p-3 rounded-2xl border border-[#E8E6D9]">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-[#7D7D72] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={profSearch}
+                onChange={(e) => setProfSearch(e.target.value)}
+                placeholder="Buscar por nome, COREN ou função..."
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E8E6D9] text-xs bg-[#F9F7F2]/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#5A5A40]"
+              />
+            </div>
+
+            {(isAdmin || isDiretorDENF) && (
+              <div className="flex items-center gap-2 shrink-0">
+                <Filter className="w-3.5 h-3.5 text-[#7D7D72]" />
+                <span className="text-xs text-[#7D7D72]">Setor:</span>
+                <select
+                  value={profSectorFilter}
+                  onChange={(e) => setProfSectorFilter(e.target.value)}
+                  className="px-3 py-2 rounded-xl border border-[#E8E6D9] text-xs font-bold bg-white text-[#2D2D2A]"
+                >
+                  <option value="TODOS">Todos os Setores</option>
+                  {formData.sectors.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* Modal / Adicionar Novo Profissional */}
+          {showAddProfModal && (
+            <div className="p-5 bg-white rounded-2xl border-2 border-[#5A5A40]/40 shadow-md space-y-4 animate-in fade-in">
+              <div className="flex items-center justify-between border-b border-[#E8E6D9] pb-3">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-[#5A5A40]" />
+                  <h4 className="font-bold text-sm text-[#2D2D2A]">
+                    Cadastrar Colaborador no Banco do Hospital
+                  </h4>
+                </div>
+                <button
+                  onClick={() => setShowAddProfModal(false)}
+                  className="w-7 h-7 rounded-lg hover:bg-[#F0EFEC] flex items-center justify-center text-[#7D7D72]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateProfessional} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="font-bold text-[#2D2D2A] block mb-1">Nome Completo *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Téc. João Marcos Silva"
+                      value={newProfName}
+                      onChange={(e) => setNewProfName(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#2D2D2A] block mb-1">Categoria Profissional *</label>
+                    <select
+                      value={newProfCategory}
+                      onChange={(e) =>
+                        setNewProfCategory(
+                          e.target.value as 'Enfermeiro' | 'Técnico de enfermagem' | 'Auxiliar de enfermagem'
+                        )
+                      }
+                      className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white font-medium"
+                    >
+                      <option value="Enfermeiro">Enfermeiro (Nível Superior)</option>
+                      <option value="Técnico de enfermagem">Técnico de enfermagem</option>
+                      <option value="Auxiliar de enfermagem">Auxiliar de enfermagem</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#2D2D2A] block mb-1">Registro COREN *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: COREN-SP 89412"
+                      value={newProfReg}
+                      onChange={(e) => setNewProfReg(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#2D2D2A] block mb-1">Setor de Lotação *</label>
+                    {isCoordenador && !isAdmin && !isDiretorDENF ? (
+                      <input
+                        type="text"
+                        disabled
+                        value={currentUser.sector}
+                        className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-slate-100 font-bold text-[#5A5A40]"
+                      />
+                    ) : (
+                      <select
+                        value={newProfSector}
+                        onChange={(e) => setNewProfSector(e.target.value)}
+                        className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white font-medium"
+                      >
+                        {formData.sectors.map((sec) => (
+                          <option key={sec} value={sec}>
+                            {sec}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#2D2D2A] block mb-1">Função / Posto de Trabalho</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Leitos 1 a 10 / Cuidados Intensivos"
+                      value={newProfRole}
+                      onChange={(e) => setNewProfRole(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#2D2D2A] block mb-1">Jornada Típica</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 07:00 - 19:00 (12h)"
+                      value={newProfHours}
+                      onChange={(e) => setNewProfHours(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#2D2D2A] block mb-1">Telefone / Contato</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: (11) 98765-4321"
+                      value={newProfPhone}
+                      onChange={(e) => setNewProfPhone(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E6D9]">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddProfModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs"
+                  >
+                    Salvar no Banco Hospitalar
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Tabela de Profissionais */}
+          <div className="bg-white rounded-2xl border border-[#E8E6D9] overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F9F7F2] text-[#7D7D72] border-b border-[#E8E6D9] font-medium">
+                  <tr>
+                    <th className="p-3 pl-4">Colaborador</th>
+                    <th className="p-3">Categoria</th>
+                    <th className="p-3">COREN</th>
+                    <th className="p-3">Setor Lotação</th>
+                    <th className="p-3">Função Padrão</th>
+                    <th className="p-3">Jornada</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 pr-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E8E6D9]">
+                  {professionalsList
+                    .filter((p) => {
+                      if (isCoordenador && !isAdmin && !isDiretorDENF) {
+                        if (p.sector.toLowerCase() !== currentUser.sector.toLowerCase()) return false;
+                      } else if (profSectorFilter !== 'TODOS') {
+                        if (p.sector.toLowerCase() !== profSectorFilter.toLowerCase()) return false;
+                      }
+                      if (profSearch.trim()) {
+                        const q = profSearch.toLowerCase();
+                        const mName = p.name.toLowerCase().includes(q);
+                        const mReg = p.registration.toLowerCase().includes(q);
+                        const mRole = p.defaultRole?.toLowerCase().includes(q);
+                        const mCat = p.category.toLowerCase().includes(q);
+                        if (!mName && !mReg && !mRole && !mCat) return false;
+                      }
+                      return true;
+                    })
+                    .map((prof) => {
+                      const isInactive = prof.status === 'inativo';
+                      const isNurse = prof.category.toLowerCase().includes('enferm');
+
+                      return (
+                        <tr key={prof.id} className={`hover:bg-[#F9F7F2]/60 ${isInactive ? 'opacity-50' : ''}`}>
+                          <td className="p-3 pl-4 font-bold text-[#2D2D2A]">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={`w-7 h-7 rounded-full flex items-center justify-center font-serif text-[11px] font-bold ${
+                                  isNurse ? 'bg-[#5A5A40] text-white' : 'bg-[#D1A661]/30 text-[#7A581E]'
+                                }`}
+                              >
+                                {prof.name.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                              </div>
+                              <div>
+                                <span>{prof.name}</span>
+                                {prof.phone && (
+                                  <div className="text-[10px] text-[#7D7D72] font-normal">{prof.phone}</div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                isNurse
+                                  ? 'bg-[#5A5A40]/15 text-[#5A5A40]'
+                                  : 'bg-[#D1A661]/25 text-[#7A581E]'
+                              }`}
+                            >
+                              {prof.category}
+                            </span>
+                          </td>
+                          <td className="p-3 font-mono text-[11px] text-[#2D2D2A]">{prof.registration}</td>
+                          <td className="p-3 font-bold text-[#2D2D2A]">{prof.sector}</td>
+                          <td className="p-3 text-[#7D7D72]">{prof.defaultRole || 'Assistencial'}</td>
+                          <td className="p-3 text-[#7D7D72]">{prof.defaultHours || '07:00 - 19:00'}</td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                isInactive
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {isInactive ? 'Inativo' : 'Ativo'}
+                            </span>
+                          </td>
+                          <td className="p-3 pr-4 text-right space-x-2">
+                            <button
+                              onClick={() => handleToggleProfStatus(prof.id)}
+                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${
+                                isInactive
+                                  ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                              }`}
+                            >
+                              {isInactive ? 'Reativar' : 'Inativar'}
+                            </button>
+                            {(isAdmin || isDiretorDENF) && (
+                              <button
+                                onClick={() => handleDeleteProfessional(prof.id)}
+                                className="p-1 rounded-lg text-[#7D7D72] hover:text-rose-600 hover:bg-rose-50"
+                                title="Remover profissional"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: GESTÃO DE USUÁRIOS */}
       {activeTab === 'users' && (

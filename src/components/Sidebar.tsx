@@ -74,8 +74,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Painéis analíticos clínicos assistenciais: Diretor DENF e Coordenador
   const canAccessClinicalAnalytics = isDiretorDENF || isCoordenador;
 
-  // Governança de TI, Gestão de Usuários e Parâmetros: EXCLUSIVO do Administrador
-  const canAccessAdminSettings = isAdmin;
+  // Governança, Gestão de Pessoal & Parâmetros: Administrador, Diretoria DENF e Coordenadores
+  const canAccessSettings = isAdmin || isDiretorDENF || isCoordenador;
 
   const pendingCount = counts?.pendingAnalysis ?? pendingQueueCount;
   const activeRelocCount = counts?.activeRelocations ?? activeRelocationsCount;
@@ -320,11 +320,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </>
         )}
 
-        {/* GOVERNANÇA, USUÁRIOS & TI (Exclusivo Administrador) */}
-        {canAccessAdminSettings && (
+        {/* GOVERNANÇA, GESTÃO DE PESSOAL & PARÂMETROS */}
+        {canAccessSettings && (
           <>
             <div className="px-3 pb-1 pt-3 text-[10px] font-bold tracking-widest text-[#8C9C82] uppercase">
-              Governança & TI
+              Governança & Pessoal
             </div>
 
             <button
@@ -337,7 +337,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
             >
               <Settings className={`w-4 h-4 shrink-0 ${isTabActive('settings') ? 'text-white' : 'text-[#8E8E80]'}`} />
-              <span>Usuários & Parâmetros</span>
+              <span>{isAdmin ? 'Gestão & Parâmetros TI' : 'Gestão de Pessoal'}</span>
             </button>
           </>
         )}

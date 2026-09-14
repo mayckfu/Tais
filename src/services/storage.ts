@@ -1281,6 +1281,8 @@ export function resetStorageToDefaults(): void {
     localStorage.setItem(STORAGE_KEYS.FOLLOWUPS, JSON.stringify(INITIAL_FOLLOWUPS));
     localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(INITIAL_ALERTS));
     localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(INITIAL_USERS[2]));
+    localStorage.setItem(STORAGE_SHIFTS_KEY, JSON.stringify(DEFAULT_SECTOR_SHIFTS));
+    localStorage.setItem(STORAGE_REGISTERED_PROFESSIONALS_KEY, JSON.stringify(INITIAL_REGISTERED_PROFESSIONALS));
   } catch (err) {
     console.error('Failed to reset storage:', err);
   }
@@ -1919,6 +1921,7 @@ export function saveRegisteredProfessional(
   const newProf: RegisteredProfessional = {
     ...prof,
     id: `reg-custom-${Date.now()}`,
+    status: prof.status || 'ativo',
   };
   const updated = [newProf, ...current];
   try {
@@ -1927,6 +1930,56 @@ export function saveRegisteredProfessional(
     console.error('Error saving registered professional:', err);
   }
   return newProf;
+}
+
+export function updateRegisteredProfessional(
+  id: string,
+  updates: Partial<RegisteredProfessional>
+): RegisteredProfessional | null {
+  const current = getStoredRegisteredProfessionals();
+  const index = current.findIndex((p) => p.id === id);
+  if (index === -1) return null;
+
+  current[index] = { ...current[index], ...updates };
+  try {
+    localStorage.setItem(STORAGE_REGISTERED_PROFESSIONALS_KEY, JSON.stringify(current));
+  } catch (err) {
+    console.error('Error updating registered professional:', err);
+  }
+  return current[index];
+}
+
+export function deleteRegisteredProfessional(id: string): boolean {
+  const current = getStoredRegisteredProfessionals();
+  const filtered = current.filter((p) => p.id !== id);
+  if (filtered.length === current.length) return false;
+
+  try {
+    localStorage.setItem(STORAGE_REGISTERED_PROFESSIONALS_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.error('Error deleting registered professional:', err);
+  }
+  return true;
+}
+
+export function toggleRegisteredProfessionalStatus(id: string): RegisteredProfessional | null {
+  const current = getStoredRegisteredProfessionals();
+  const prof = current.find((p) => p.id === id);
+  if (!prof) return null;
+
+  const newStatus = prof.status === 'inativo' ? 'ativo' : 'inativo';
+  return updateRegisteredProfessional(id, { status: newStatus });
+}
+
+export function resetRegisteredProfessionalsToDefault(): void {
+  try {
+    localStorage.setItem(
+      STORAGE_REGISTERED_PROFESSIONALS_KEY,
+      JSON.stringify(INITIAL_REGISTERED_PROFESSIONALS)
+    );
+  } catch (err) {
+    console.error('Error resetting registered professionals:', err);
+  }
 }
 
 export function getRegisteredProfessionalsBySector(sector: string): RegisteredProfessional[] {
