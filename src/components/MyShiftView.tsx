@@ -36,6 +36,7 @@ import {
   Lock,
   Eye,
   ShieldAlert,
+  Edit2,
 } from 'lucide-react';
 
 interface MyShiftViewProps {
@@ -98,8 +99,9 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
     useState<AbsenceReason>('falta_injustificada');
   const [absenceModalNotes, setAbsenceModalNotes] = useState<string>('');
 
-  // Modal de Adicionar Profissional (Escala Prevista ou Troca/Extra)
+  // Modal de Adicionar / Editar Profissional (Escala Prevista ou Troca/Extra)
   const [isAddStaffModalOpen, setIsAddStaffModalOpen] = useState<boolean>(false);
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [addStaffMode, setAddStaffMode] = useState<'escala' | 'troca'>('escala');
   const [selectedRegisteredId, setSelectedRegisteredId] = useState<string>('');
   const [newStaffName, setNewStaffName] = useState<string>('');
@@ -300,6 +302,7 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
 
   // Abertura do modal de inclusão (escala ou troca)
   const handleOpenAddStaffModal = (mode: 'escala' | 'troca' = 'escala') => {
+    setEditingStaffId(null);
     setAddStaffMode(mode);
     setSelectedRegisteredId('');
     setNewStaffName('');
@@ -314,6 +317,23 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
     setNewStaffInitialStatus('presente');
     setIsAutoFilled(false);
     setAutoFilledSector('');
+    setShouldSaveToRegistry(false);
+    setIsAddStaffModalOpen(true);
+  };
+
+  // Abertura do modal para edição de profissional da escala do plantão
+  const handleOpenEditStaffModal = (staff: ShiftStaffMember) => {
+    setEditingStaffId(staff.id);
+    setAddStaffMode(staff.isReinforcement ? 'troca' : 'escala');
+    setSelectedRegisteredId('');
+    setNewStaffName(staff.name);
+    setNewStaffCategory(staff.category);
+    setNewStaffRegistration(staff.registration);
+    setNewStaffRole(staff.scheduledRole);
+    setNewStaffHours(staff.scheduledHours);
+    setNewStaffInitialStatus(staff.status);
+    setIsAutoFilled(false);
+    setAutoFilledSector(staff.originSector || '');
     setShouldSaveToRegistry(false);
     setIsAddStaffModalOpen(true);
   };
@@ -343,10 +363,44 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
     }
   };
 
-  // Adicionar profissional à escala (automático ou manual)
+  // Adicionar ou editar profissional na escala (automático ou manual)
   const handleAddStaffMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaffName.trim()) return;
+
+    if (editingStaffId) {
+      const updatedStaff = shiftData.staff.map((s) => {
+        if (s.id === editingStaffId) {
+          return {
+            ...s,
+            name: newStaffName.trim(),
+            category: newStaffCategory,
+            registration: newStaffRegistration.trim() || 'COREN-SP',
+            scheduledRole: newStaffRole.trim() || 'Assistencial',
+            scheduledHours: newStaffHours.trim() || '07:00 - 19:00',
+            status: newStaffInitialStatus,
+            checkInTime:
+              newStaffInitialStatus === 'presente' && !s.checkInTime
+                ? new Date().toTimeString().slice(0, 5)
+                : s.checkInTime,
+          };
+        }
+        return s;
+      });
+
+      const updatedData = {
+        ...shiftData,
+        staff: updatedStaff,
+      };
+      handlePersistShiftData(
+        updatedData,
+        `Dados de ${newStaffName.trim()} atualizados na escala.`
+      );
+      setIsAddStaffModalOpen(false);
+      setEditingStaffId(null);
+      playHospitalChime('success');
+      return;
+    }
 
     const isReinforcement = addStaffMode === 'troca';
 
@@ -1057,6 +1111,14 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
                   {canEditShift ? (
                     <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-[#E8E6D9]">
                       <button
+                        onClick={() => handleOpenEditStaffModal(member)}
+                        className="p-1.5 rounded-md text-xs font-bold text-[#5A5A40] hover:bg-[#5A5A40]/10 transition-colors cursor-pointer"
+                        title="Editar colaborador da escala"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
                         onClick={() => handleMarkPresent(member.id)}
                         className={`p-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
                           isPresent
@@ -1207,11 +1269,17 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
             <div className="flex items-center justify-between border-b border-[#E8E6D9] pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#F0EFEA] text-[#5A5A40] flex items-center justify-center">
-                  <UserPlus className="w-4 h-4 text-[#5A5A40]" />
+                  {editingStaffId ? (
+                    <Edit2 className="w-4 h-4 text-[#5A5A40]" />
+                  ) : (
+                    <UserPlus className="w-4 h-4 text-[#5A5A40]" />
+                  )}
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-base text-[#2D2D2A]">
-                    {addStaffMode === 'escala'
+                    {editingStaffId
+                      ? 'Editar Colaborador da Escala'
+                      : addStaffMode === 'escala'
                       ? 'Adicionar Profissional à Escala Prevista'
                       : 'Adicionar Troca ou Hora-Extra de Cobertura'}
                   </h3>
@@ -1222,7 +1290,10 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setIsAddStaffModalOpen(false)}
+                onClick={() => {
+                  setIsAddStaffModalOpen(false);
+                  setEditingStaffId(null);
+                }}
                 className="text-[#7D7D72] hover:text-[#2D2D2A] p-1.5 rounded-lg hover:bg-[#F9F7F2] cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1230,91 +1301,95 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
             </div>
 
             {/* Alternância de Modo */}
-            <div className="flex items-center p-1 bg-[#F9F7F2] rounded-xl border border-[#E8E6D9] text-xs">
-              <button
-                type="button"
-                onClick={() => setAddStaffMode('escala')}
-                className={`flex-1 py-1.5 rounded-lg font-bold transition-all text-center cursor-pointer ${
-                  addStaffMode === 'escala'
-                    ? 'bg-white text-[#2D2D2A] shadow-xs'
-                    : 'text-[#7D7D72] hover:text-[#2D2D2A]'
-                }`}
-              >
-                Escala Prevista do Setor
-              </button>
-              <button
-                type="button"
-                onClick={() => setAddStaffMode('troca')}
-                className={`flex-1 py-1.5 rounded-lg font-bold transition-all text-center cursor-pointer ${
-                  addStaffMode === 'troca'
-                    ? 'bg-white text-blue-800 shadow-xs'
-                    : 'text-[#7D7D72] hover:text-[#2D2D2A]'
-                }`}
-              >
-                Troca / Extra (Reforço)
-              </button>
-            </div>
+            {!editingStaffId && (
+              <div className="flex items-center p-1 bg-[#F9F7F2] rounded-xl border border-[#E8E6D9] text-xs">
+                <button
+                  type="button"
+                  onClick={() => setAddStaffMode('escala')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition-all text-center cursor-pointer ${
+                    addStaffMode === 'escala'
+                      ? 'bg-white text-[#2D2D2A] shadow-xs'
+                      : 'text-[#7D7D72] hover:text-[#2D2D2A]'
+                  }`}
+                >
+                  Escala Prevista do Setor
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddStaffMode('troca')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition-all text-center cursor-pointer ${
+                    addStaffMode === 'troca'
+                      ? 'bg-white text-blue-800 shadow-xs'
+                      : 'text-[#7D7D72] hover:text-[#2D2D2A]'
+                  }`}
+                >
+                  Troca / Extra (Reforço)
+                </button>
+              </div>
+            )}
 
             {/* SELEÇÃO DO PROFISSIONAL CADASTRADO (AUTOMÁTICO) */}
-            <div className="bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E6D9] space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="select-registered-professional"
-                  className="text-xs font-bold text-[#2D2D2A] flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-[#D1A661]" />
-                  <span>Selecionar Profissional Cadastrado (Preenchimento Automático):</span>
-                </label>
-                <span className="text-[10px] text-[#5A5A40] font-semibold">
-                  {registeredProfessionals.length} cadastrados
-                </span>
-              </div>
-
-              <select
-                id="select-registered-professional"
-                value={selectedRegisteredId}
-                onChange={(e) => handleSelectRegisteredProfessional(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white text-[#2D2D2A] text-xs font-medium focus:outline-hidden focus:border-[#5A5A40] cursor-pointer shadow-2xs"
-              >
-                <option value="">-- Escolha um profissional para preencher no automático --</option>
-                
-                {/* Grupo: Profissionais do Setor Atual */}
-                <optgroup label={`--- Equipe Cadastrada de ${selectedSector} ---`}>
-                  {registeredProfessionals
-                    .filter((p) => p.sector.toLowerCase() === selectedSector.toLowerCase())
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — {p.category} ({p.registration}) • {p.defaultRole}
-                      </option>
-                    ))}
-                </optgroup>
-
-                {/* Grupo: Demais Profissionais do Hospital */}
-                <optgroup label="--- Profissionais de Outros Setores (Hospital) ---">
-                  {registeredProfessionals
-                    .filter((p) => p.sector.toLowerCase() !== selectedSector.toLowerCase())
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — {p.category} ({p.registration}) [{p.sector}]
-                      </option>
-                    ))}
-                </optgroup>
-              </select>
-
-              {/* Feedback visual de dados preenchidos no automático */}
-              {isAutoFilled ? (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px]">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>
-                    <strong>Dados preenchidos no automático!</strong> Profissional cadastrado em <strong>{autoFilledSector}</strong>.
+            {!editingStaffId && (
+              <div className="bg-[#FAF8F5] p-3.5 rounded-xl border border-[#E8E6D9] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="select-registered-professional"
+                    className="text-xs font-bold text-[#2D2D2A] flex items-center gap-1.5"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#D1A661]" />
+                    <span>Selecionar Profissional Cadastrado (Preenchimento Automático):</span>
+                  </label>
+                  <span className="text-[10px] text-[#5A5A40] font-semibold">
+                    {registeredProfessionals.length} cadastrados
                   </span>
                 </div>
-              ) : (
-                <p className="text-[10px] text-[#7D7D72]">
-                  Dica: Selecione acima para preencher Nome, Categoria, COREN e Posto instantaneamente.
-                </p>
-              )}
-            </div>
+
+                <select
+                  id="select-registered-professional"
+                  value={selectedRegisteredId}
+                  onChange={(e) => handleSelectRegisteredProfessional(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-[#E8E6D9] bg-white text-[#2D2D2A] text-xs font-medium focus:outline-hidden focus:border-[#5A5A40] cursor-pointer shadow-2xs"
+                >
+                  <option value="">-- Escolha um profissional para preencher no automático --</option>
+                  
+                  {/* Grupo: Profissionais do Setor Atual */}
+                  <optgroup label={`--- Equipe Cadastrada de ${selectedSector} ---`}>
+                    {registeredProfessionals
+                      .filter((p) => p.sector.toLowerCase() === selectedSector.toLowerCase())
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {p.category} ({p.registration}) • {p.defaultRole}
+                        </option>
+                      ))}
+                  </optgroup>
+
+                  {/* Grupo: Demais Profissionais do Hospital */}
+                  <optgroup label="--- Profissionais de Outros Setores (Hospital) ---">
+                    {registeredProfessionals
+                      .filter((p) => p.sector.toLowerCase() !== selectedSector.toLowerCase())
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {p.category} ({p.registration}) [{p.sector}]
+                        </option>
+                      ))}
+                  </optgroup>
+                </select>
+
+                {/* Feedback visual de dados preenchidos no automático */}
+                {isAutoFilled ? (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px]">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>
+                      <strong>Dados preenchidos no automático!</strong> Profissional cadastrado em <strong>{autoFilledSector}</strong>.
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-[#7D7D72]">
+                    Dica: Selecione acima para preencher Nome, Categoria, COREN e Posto instantaneamente.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* CAMPOS DE DETALHES (PREENCHIDOS OU MANUAIS) */}
             <div className="space-y-3 text-xs">
@@ -1463,7 +1538,11 @@ export const MyShiftView: React.FC<MyShiftViewProps> = ({
               >
                 <Check className="w-4 h-4" />
                 <span>
-                  {addStaffMode === 'escala' ? 'Adicionar à Escala Prevista' : 'Adicionar Troca/Extra'}
+                  {editingStaffId
+                    ? 'Salvar Alterações do Colaborador'
+                    : addStaffMode === 'escala'
+                    ? 'Adicionar à Escala Prevista'
+                    : 'Adicionar Troca/Extra'}
                 </span>
               </button>
             </div>

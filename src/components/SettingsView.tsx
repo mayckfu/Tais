@@ -20,6 +20,7 @@ import {
   Briefcase,
   Search,
   Filter,
+  Edit2,
 } from 'lucide-react';
 import {
   getStoredUsers,
@@ -28,6 +29,7 @@ import {
   toggleUserStatus,
   getStoredRegisteredProfessionals,
   saveRegisteredProfessional,
+  updateRegisteredProfessional,
   deleteRegisteredProfessional,
   toggleRegisteredProfessionalStatus,
 } from '../services/storage';
@@ -65,8 +67,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     isCoordenador ? currentUser.sector : 'TODOS'
   );
 
-  // Form de Novo Profissional de Enfermagem
+  // Form de Cadastro e Edição de Profissional de Enfermagem
   const [showAddProfModal, setShowAddProfModal] = useState(false);
+  const [editingProfId, setEditingProfId] = useState<string | null>(null);
   const [newProfName, setNewProfName] = useState('');
   const [newProfCategory, setNewProfCategory] = useState<'Enfermeiro' | 'Técnico de enfermagem' | 'Auxiliar de enfermagem'>('Técnico de enfermagem');
   const [newProfReg, setNewProfReg] = useState('');
@@ -99,25 +102,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setProfessionalsList(getStoredRegisteredProfessionals());
   };
 
-  const handleCreateProfessional = (e: React.FormEvent) => {
+  const handleOpenAddProfModal = () => {
+    setEditingProfId(null);
+    setNewProfName('');
+    setNewProfCategory('Técnico de enfermagem');
+    setNewProfReg('');
+    setNewProfRole('Assistencial');
+    setNewProfSector(isCoordenador ? currentUser.sector : 'UTI');
+    setNewProfHours('07:00 - 19:00');
+    setNewProfPhone('');
+    setShowAddProfModal(true);
+  };
+
+  const handleOpenEditProfModal = (prof: RegisteredProfessional) => {
+    setEditingProfId(prof.id);
+    setNewProfName(prof.name);
+    setNewProfCategory(prof.category);
+    setNewProfReg(prof.registration);
+    setNewProfRole(prof.defaultRole || 'Assistencial');
+    setNewProfSector(prof.sector);
+    setNewProfHours(prof.defaultHours || '07:00 - 19:00');
+    setNewProfPhone(prof.phone || '');
+    setShowAddProfModal(true);
+  };
+
+  const handleSaveProfessional = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProfName.trim()) return;
 
     const targetSector = isCoordenador ? currentUser.sector : newProfSector;
 
-    saveRegisteredProfessional({
-      name: newProfName.trim(),
-      category: newProfCategory,
-      registration: newProfReg.trim() || 'COREN-SP',
-      defaultRole: newProfRole.trim() || 'Assistencial',
-      sector: targetSector,
-      defaultHours: newProfHours.trim() || '07:00 - 19:00',
-      phone: newProfPhone.trim() || '(11) 98000-0000',
-      status: 'ativo',
-    });
+    if (editingProfId) {
+      updateRegisteredProfessional(editingProfId, {
+        name: newProfName.trim(),
+        category: newProfCategory,
+        registration: newProfReg.trim() || 'COREN-SP',
+        defaultRole: newProfRole.trim() || 'Assistencial',
+        sector: targetSector,
+        defaultHours: newProfHours.trim() || '07:00 - 19:00',
+        phone: newProfPhone.trim() || '(11) 98000-0000',
+      });
+    } else {
+      saveRegisteredProfessional({
+        name: newProfName.trim(),
+        category: newProfCategory,
+        registration: newProfReg.trim() || 'COREN-SP',
+        defaultRole: newProfRole.trim() || 'Assistencial',
+        sector: targetSector,
+        defaultHours: newProfHours.trim() || '07:00 - 19:00',
+        phone: newProfPhone.trim() || '(11) 98000-0000',
+        status: 'ativo',
+      });
+    }
 
     refreshProfessionals();
     setShowAddProfModal(false);
+    setEditingProfId(null);
     setNewProfName('');
     setNewProfReg('');
     setNewProfRole('Assistencial');
@@ -440,7 +480,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <button
               id="btn-add-staff-member"
-              onClick={() => setShowAddProfModal(true)}
+              onClick={handleOpenAddProfModal}
               className="px-4 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs transition-all inline-flex items-center gap-1.5 self-start sm:self-auto"
             >
               <UserPlus className="w-4 h-4" />
@@ -481,14 +521,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
 
-          {/* Modal / Adicionar Novo Profissional */}
+          {/* Modal / Adicionar ou Editar Profissional */}
           {showAddProfModal && (
             <div className="p-5 bg-white rounded-2xl border-2 border-[#5A5A40]/40 shadow-md space-y-4 animate-in fade-in">
               <div className="flex items-center justify-between border-b border-[#E8E6D9] pb-3">
                 <div className="flex items-center gap-2">
-                  <UserPlus className="w-5 h-5 text-[#5A5A40]" />
+                  {editingProfId ? (
+                    <Edit2 className="w-5 h-5 text-[#5A5A40]" />
+                  ) : (
+                    <UserPlus className="w-5 h-5 text-[#5A5A40]" />
+                  )}
                   <h4 className="font-bold text-sm text-[#2D2D2A]">
-                    Cadastrar Colaborador no Banco do Hospital
+                    {editingProfId
+                      ? 'Editar Dados do Colaborador Hospitalar'
+                      : 'Cadastrar Colaborador no Banco do Hospital'}
                   </h4>
                 </div>
                 <button
@@ -499,7 +545,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
               </div>
 
-              <form onSubmit={handleCreateProfessional} className="space-y-4">
+              <form onSubmit={handleSaveProfessional} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
                   <div>
                     <label className="font-bold text-[#2D2D2A] block mb-1">Nome Completo *</label>
@@ -603,16 +649,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E6D9]">
                   <button
                     type="button"
-                    onClick={() => setShowAddProfModal(false)}
+                    onClick={() => {
+                      setShowAddProfModal(false);
+                      setEditingProfId(null);
+                    }}
                     className="px-4 py-2 rounded-xl text-xs font-bold text-[#7D7D72] hover:bg-[#F9F7F2] border border-[#E8E6D9]"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs"
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs inline-flex items-center gap-1.5"
                   >
-                    Salvar no Banco Hospitalar
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{editingProfId ? 'Salvar Edições' : 'Salvar no Banco Hospitalar'}</span>
                   </button>
                 </div>
               </form>
@@ -702,7 +752,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               {isInactive ? 'Inativo' : 'Ativo'}
                             </span>
                           </td>
-                          <td className="p-3 pr-4 text-right space-x-2">
+                          <td className="p-3 pr-4 text-right space-x-1.5 whitespace-nowrap">
+                            <button
+                              onClick={() => handleOpenEditProfModal(prof)}
+                              className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#5A5A40]/10 text-[#5A5A40] hover:bg-[#5A5A40]/20 border border-[#5A5A40]/30 transition-colors inline-flex items-center gap-1"
+                              title="Editar dados cadastrais deste colaborador"
+                            >
+                              <Edit2 className="w-3 h-3 text-[#5A5A40]" />
+                              <span>Editar</span>
+                            </button>
                             <button
                               onClick={() => handleToggleProfStatus(prof.id)}
                               className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${
@@ -716,7 +774,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                             {(isAdmin || isDiretorDENF) && (
                               <button
                                 onClick={() => handleDeleteProfessional(prof.id)}
-                                className="p-1 rounded-lg text-[#7D7D72] hover:text-rose-600 hover:bg-rose-50"
+                                className="p-1 rounded-lg text-[#7D7D72] hover:text-rose-600 hover:bg-rose-50 inline-flex items-center"
                                 title="Remover profissional"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
