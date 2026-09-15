@@ -15,6 +15,49 @@ import {
 
 export const INITIAL_USERS: User[] = [
   {
+    id: 'usr-admin-mestre-dos-magos',
+    name: 'Mestre dos Magos',
+    email: 'Difenfsystemlagartto@gmail.com',
+    password: 'admin@difenf2026',
+    role: 'admin',
+    roleTitle: 'Administrador Geral do Sistema (Master)',
+    sector: 'DIFENF',
+    registrationNumber: 'ADM-MESTRE',
+    status: 'ativo',
+    phone: '(79) 99999-0000',
+    createdDate: '2025-02-01',
+  },
+  {
+    id: 'usr-diretor-3127851',
+    name: 'CANDICE LIMA CRUZ PORTO',
+    email: 'CANDICE.CRUZ@EBSERH.GOV.BR',
+    password: 'ebserh@3127851',
+    role: 'denf',
+    roleTitle: 'CHEFE DA DIVISAO DE ENFERMAGEM (DIRETORA)',
+    sector: 'DIVISAO DE ENFERMAGEM',
+    registrationNumber: '3127851',
+    functionCode: '3911003000',
+    gf: 'GF0025',
+    status: 'ativo',
+    phone: '(79) 98101-3000',
+    createdDate: '2025-02-01',
+  },
+  {
+    id: 'usr-coord-1201067',
+    name: 'ALINE BATISTA ANDRADE MATOS',
+    email: 'MATOS.ALINE@EBSERH.GOV.BR',
+    password: 'ebserh@1201067',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DA UNIDADE DE APOIO A GESTAO EM ENFERMAGEM',
+    sector: 'UNIDADE DE APOIO A GESTAO EM ENFERMAGEM',
+    registrationNumber: '1201067',
+    functionCode: '3911003001',
+    gf: 'GF0027',
+    status: 'ativo',
+    phone: '(79) 98101-3001',
+    createdDate: '2025-02-01',
+  },
+  {
     id: 'usr-chefe-1288646',
     name: 'ANDRIA SILVEIRA ALMEIDA',
     email: 'ANDRIA.ALMEIDA@HUBRASIL.GOV.BR',
@@ -179,6 +222,9 @@ export const INITIAL_SETTINGS: SystemSettings = {
     },
   },
   sectors: [
+    'DIFENF',
+    'DIVISAO DE ENFERMAGEM',
+    'UNIDADE DE APOIO A GESTAO EM ENFERMAGEM',
     'UTI',
     'Centro Cirúrgico',
     'CME',
@@ -1268,11 +1314,26 @@ export function getStoredUsers(): User[] {
 
     if (missingInitials.length > 0 || filteredUsers.length !== parsed.length) {
       const merged = [...withPasswords, ...missingInitials];
+      // Keep admin users and directors at the top of the user list
+      merged.sort((a, b) => {
+        const roleOrder: Record<string, number> = { admin: 0, denf: 1, coordenador: 2, solicitante: 3 };
+        const orderA = roleOrder[a.role] ?? 99;
+        const orderB = roleOrder[b.role] ?? 99;
+        return orderA - orderB;
+      });
       saveStoredUsers(merged);
       return merged;
     }
 
-    return withPasswords;
+    // Keep admin and directors at top if present
+    const sorted = [...withPasswords].sort((a, b) => {
+      const roleOrder: Record<string, number> = { admin: 0, denf: 1, coordenador: 2, solicitante: 3 };
+      const orderA = roleOrder[a.role] ?? 99;
+      const orderB = roleOrder[b.role] ?? 99;
+      return orderA - orderB;
+    });
+
+    return sorted;
   } catch {
     return INITIAL_USERS;
   }
