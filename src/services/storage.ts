@@ -15,52 +15,139 @@ import {
 
 export const INITIAL_USERS: User[] = [
   {
-    id: 'usr-001',
-    name: 'Enfª. Mariana Costa',
-    email: 'mariana.costa@hospital.org.br',
-    role: 'solicitante',
-    roleTitle: 'Enfermeira de Plantão',
-    sector: 'UTI',
-    registrationNumber: 'COREN-142857',
-    status: 'ativo',
-    phone: '(11) 98765-4321',
-    createdDate: '2025-01-10',
-  },
-  {
-    id: 'usr-002',
-    name: 'Enf. Roberto Almeida',
-    email: 'roberto.almeida@hospital.org.br',
+    id: 'usr-chefe-1288646',
+    name: 'ANDRIA SILVEIRA ALMEIDA',
+    email: 'ANDRIA.ALMEIDA@HUBRASIL.GOV.BR',
+    password: 'ebserh@1288646',
     role: 'coordenador',
-    roleTitle: 'Coordenador de Enfermagem',
-    sector: 'Centro Cirúrgico',
-    registrationNumber: 'COREN-098231',
+    roleTitle: 'CHEFE DA UNIDADE DE DIAGNOSTICO POR IMAGEM',
+    sector: 'UNIDADE DE DIAGNOSTICO POR IMAGEM',
+    registrationNumber: '1288646',
+    functionCode: '3911000102',
+    gf: 'GF0027',
     status: 'ativo',
-    phone: '(11) 98765-4322',
-    createdDate: '2024-08-15',
+    phone: '(79) 98101-1001',
+    createdDate: '2025-02-01',
   },
   {
-    id: 'usr-003',
-    name: 'Dra. Patrícia Valente',
-    email: 'patricia.valente@hospital.org.br',
-    role: 'denf',
-    roleTitle: 'Diretoria de Enfermagem (DENF / RT)',
-    sector: 'DENF / Diretoria',
-    registrationNumber: 'COREN-041590',
+    id: 'usr-chefe-3127848',
+    name: 'CAMILLA DANIELLE DORIA DE SANTANA',
+    email: 'CAMILLA.SANTANA@EBSERH.GOV.BR',
+    password: 'ebserh@3127848',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DO SETOR DE REGULACAO E AVALIACAO EM SAUDE',
+    sector: 'SETOR DE REGULACAO E AVALIACAO EM SAUDE',
+    registrationNumber: '3127848',
+    functionCode: '3911000400',
+    gf: 'GF0026',
     status: 'ativo',
-    phone: '(11) 98765-4323',
-    createdDate: '2023-03-01',
+    phone: '(79) 98101-1002',
+    createdDate: '2025-02-01',
   },
   {
-    id: 'usr-004',
-    name: 'Carlos Eduardo Mendes',
-    email: 'admin@hospital.org.br',
-    role: 'admin',
-    roleTitle: 'Administrador de TI & Governança',
-    sector: 'Gestão da Qualidade & TI',
-    registrationNumber: 'ADM-00194',
+    id: 'usr-chefe-1050154',
+    name: 'ELIZABETE ALMEIDA SANTOS BORGES',
+    email: 'ELIZABETE.SANTOS@EBSERH.GOV.BR',
+    password: 'ebserh@1050154',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DA UNIDADE DE REGULACAO ASSISTENCIAL',
+    sector: 'UNIDADE DE REGULACAO INTERNA',
+    registrationNumber: '1050154',
+    functionCode: '3911000401',
+    gf: 'GF0027',
     status: 'ativo',
-    phone: '(11) 98765-4324',
-    createdDate: '2023-01-05',
+    phone: '(79) 98101-1003',
+    createdDate: '2025-02-01',
+  },
+  {
+    id: 'usr-chefe-1288242',
+    name: 'FLAVIA BARBOSA MONTEIRO',
+    email: 'FLAVIA.MONTEIRO@EBSERH.GOV.BR',
+    password: 'ebserh@1288242',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DA UNIDADE DE PRONTO ATENDIMENTO',
+    sector: 'UNIDADE DE PRONTO ATENDIMENTO',
+    registrationNumber: '1288242',
+    functionCode: '3911001001',
+    gf: 'GF0027',
+    status: 'ativo',
+    phone: '(79) 98101-1004',
+    createdDate: '2025-02-01',
+  },
+  {
+    id: 'usr-chefe-1200739',
+    name: 'JADIEL FELLIPE SANTANA SANTOS',
+    email: 'JADIEL.SANTOS@HUBRASIL.GOV.BR',
+    password: 'ebserh@1200739',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DO SETOR DE APOIO DIAGNOSTICO E TERAPEUTICO',
+    sector: 'SETOR DE APOIO DIAGNOSTICO E TERAPEUTICO',
+    registrationNumber: '1200739',
+    functionCode: '3911000100',
+    gf: 'GF0026',
+    status: 'ativo',
+    phone: '(79) 98101-1005',
+    createdDate: '2025-02-01',
+  },
+  {
+    id: 'usr-chefe-1291117',
+    name: 'MALENA DE CARVALHO CORREIA NASCIMENTO',
+    email: 'MALENA.CORREIA@EBSERH.GOV.BR',
+    password: 'ebserh@1291117',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DA UNIDADE DE CLINICA MEDICA',
+    sector: 'DIVISAO DE GESTAO DO CUIDADO',
+    registrationNumber: '1291117',
+    functionCode: '3911001010',
+    gf: 'GF0027',
+    status: 'ativo',
+    phone: '(79) 98101-1006',
+    createdDate: '2025-02-01',
+  },
+  {
+    id: 'usr-chefe-1135623',
+    name: 'MAYARA DE TARSO GOIS CARVALHO',
+    email: 'MAYARA.GOIS@EBSERH.GOV.BR',
+    password: 'ebserh@1135623',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DA UNIDADE DE ATENCAO A SAUDE DA CRIANCA E DO ADOLESCENTE',
+    sector: 'DIVISAO DE GESTAO DO CUIDADO',
+    registrationNumber: '1135623',
+    functionCode: '3911001004',
+    gf: 'GF0027',
+    status: 'ativo',
+    phone: '(79) 98101-1007',
+    createdDate: '2025-02-01',
+  },
+  {
+    id: 'usr-chefe-2158678',
+    name: 'PAOLA MARQUES DA COSTA SANTOS',
+    email: 'PAOLA.SANTOS@HUBRASIL.GOV.BR',
+    password: 'ebserh@2158678',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DA UNIDADE DE CUIDADOS INTENSIVOS E SEMI-INTENSIVOS ADULTO CIRURGIA/RPA/CME',
+    sector: 'UNIDADE DE CUIDADOS INTENSIVOS E SEMI-INTENSIVOS ADULTO CIRURGIA/RPA/CME',
+    registrationNumber: '2158678',
+    functionCode: '3911000104',
+    gf: 'GF0027',
+    status: 'ativo',
+    phone: '(79) 98101-1008',
+    createdDate: '2025-02-01',
+  },
+  {
+    id: 'usr-chefe-1424359',
+    name: 'SIMONE KROLL RABELO',
+    email: 'SIMONE.RABELO@EBSERH.GOV.BR',
+    password: 'ebserh@1424359',
+    role: 'coordenador',
+    roleTitle: 'CHEFE DA DIVISAO DE GESTAO DO CUIDADO',
+    sector: 'DIVISAO DE GESTAO DO CUIDADO',
+    registrationNumber: '1424359',
+    functionCode: '3911001000',
+    gf: 'GF0025',
+    status: 'ativo',
+    phone: '(79) 98101-1009',
+    createdDate: '2025-02-01',
   },
 ];
 
@@ -104,6 +191,13 @@ export const INITIAL_SETTINGS: SystemSettings = {
     'Pronto Atendimento',
     'Maternidade',
     'Hemodiálise',
+    'UNIDADE DE DIAGNOSTICO POR IMAGEM',
+    'SETOR DE REGULACAO E AVALIACAO EM SAUDE',
+    'UNIDADE DE REGULACAO INTERNA',
+    'UNIDADE DE PRONTO ATENDIMENTO',
+    'SETOR DE APOIO DIAGNOSTICO E TERAPEUTICO',
+    'DIVISAO DE GESTAO DO CUIDADO',
+    'UNIDADE DE CUIDADOS INTENSIVOS E SEMI-INTENSIVOS ADULTO CIRURGIA/RPA/CME',
   ],
   professionalCategories: [
     'Enfermeiro',
@@ -1114,7 +1208,19 @@ export function getStoredSettings(): SystemSettings {
       localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(INITIAL_SETTINGS));
       return INITIAL_SETTINGS;
     }
-    return JSON.parse(raw);
+    const parsed: SystemSettings = JSON.parse(raw);
+    // Ensure newly configured hospital sectors are merged
+    let updated = false;
+    const existingSectors = new Set(parsed.sectors || []);
+    const sectorsToAdd = INITIAL_SETTINGS.sectors.filter((sec) => !existingSectors.has(sec));
+    if (sectorsToAdd.length > 0) {
+      parsed.sectors = [...(parsed.sectors || []), ...sectorsToAdd];
+      updated = true;
+    }
+    if (updated) {
+      saveStoredSettings(parsed);
+    }
+    return parsed;
   } catch {
     return INITIAL_SETTINGS;
   }
@@ -1128,6 +1234,8 @@ export function saveStoredSettings(settings: SystemSettings): void {
   }
 }
 
+const DEPRECATED_MOCK_USER_IDS = new Set(['usr-001', 'usr-002', 'usr-003', 'usr-004']);
+
 export function getStoredUsers(): User[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -1135,7 +1243,36 @@ export function getStoredUsers(): User[] {
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
       return INITIAL_USERS;
     }
-    return JSON.parse(raw);
+    const parsed: User[] = JSON.parse(raw);
+    // Remove old mock/fictitious users if still in localStorage
+    const filteredUsers = parsed.filter((u) => !DEPRECATED_MOCK_USER_IDS.has(u.id));
+
+    // Ensure every user has a default password if loaded from an earlier schema version
+    const withPasswords = filteredUsers.map((u) => {
+      if (!u.password) {
+        const initial = INITIAL_USERS.find((init) => init.id === u.id);
+        return {
+          ...u,
+          password: initial?.password || `${u.role}@hospital2026`,
+        };
+      }
+      return u;
+    });
+
+    // Merge any missing initial users (such as newly configured sector chiefs)
+    const existingIds = new Set(withPasswords.map((u) => u.id));
+    const existingEmails = new Set(withPasswords.map((u) => u.email.toLowerCase()));
+    const missingInitials = INITIAL_USERS.filter(
+      (init) => !existingIds.has(init.id) && !existingEmails.has(init.email.toLowerCase())
+    );
+
+    if (missingInitials.length > 0 || filteredUsers.length !== parsed.length) {
+      const merged = [...withPasswords, ...missingInitials];
+      saveStoredUsers(merged);
+      return merged;
+    }
+
+    return withPasswords;
   } catch {
     return INITIAL_USERS;
   }
@@ -1195,11 +1332,16 @@ export function getActiveUser(): User {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_USER);
     if (!raw) {
-      return INITIAL_USERS[2]; // Default to DENF for rich management review
+      return INITIAL_USERS[0]; // Default to first configured sector chief
     }
-    return JSON.parse(raw);
+    const user: User = JSON.parse(raw);
+    if (DEPRECATED_MOCK_USER_IDS.has(user.id)) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(INITIAL_USERS[0]));
+      return INITIAL_USERS[0];
+    }
+    return user;
   } catch {
-    return INITIAL_USERS[2];
+    return INITIAL_USERS[0];
   }
 }
 
@@ -1280,7 +1422,7 @@ export function resetStorageToDefaults(): void {
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
     localStorage.setItem(STORAGE_KEYS.FOLLOWUPS, JSON.stringify(INITIAL_FOLLOWUPS));
     localStorage.setItem(STORAGE_KEYS.ALERTS, JSON.stringify(INITIAL_ALERTS));
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(INITIAL_USERS[2]));
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_USER, JSON.stringify(INITIAL_USERS[0]));
     localStorage.setItem(STORAGE_SHIFTS_KEY, JSON.stringify(DEFAULT_SECTOR_SHIFTS));
     localStorage.setItem(STORAGE_REGISTERED_PROFESSIONALS_KEY, JSON.stringify(INITIAL_REGISTERED_PROFESSIONALS));
   } catch (err) {

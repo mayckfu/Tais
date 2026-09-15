@@ -21,10 +21,17 @@ import {
   Search,
   Filter,
   Edit2,
+  Key,
+  Eye,
+  EyeOff,
+  Copy,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import {
   getStoredUsers,
   addUser,
+  updateUser,
   deleteUser,
   toggleUserStatus,
   getStoredRegisteredProfessionals,
@@ -78,15 +85,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newProfHours, setNewProfHours] = useState('07:00 - 19:00');
   const [newProfPhone, setNewProfPhone] = useState('');
 
-  // New User Form State
+  // User Form State (Cadastrar e Editar Cadastro)
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('solicitante');
   const [newUserRoleTitle, setNewUserRoleTitle] = useState('Enfermeiro de Plantão');
   const [newUserSector, setNewUserSector] = useState(isCoordenador ? currentUser.sector : 'UTI');
   const [newUserReg, setNewUserReg] = useState('');
+  const [newUserFunctionCode, setNewUserFunctionCode] = useState('');
+  const [newUserGf, setNewUserGf] = useState('');
   const [newUserPhone, setNewUserPhone] = useState('');
+  const [newUserStatus, setNewUserStatus] = useState<'ativo' | 'inativo'>('ativo');
+  const [showFormPassword, setShowFormPassword] = useState(false);
+
+  // Dedicated Password Modal State (Editar Senha)
+  const [passwordModalUser, setPasswordModalUser] = useState<User | null>(null);
+  const [editPasswordValue, setEditPasswordValue] = useState('');
+  const [confirmPasswordValue, setConfirmPasswordValue] = useState('');
+  const [showPasswordText, setShowPasswordText] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   // Catalog inputs
   const [newSector, setNewSector] = useState('');
@@ -176,35 +198,162 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     refreshProfessionals();
   };
 
+  const handleOpenAddUserModal = () => {
+    setEditingUserId(null);
+    setNewUserName('');
+    setNewUserEmail('');
+    setNewUserPassword('hospital@2026');
+    setNewUserRole('solicitante');
+    setNewUserRoleTitle('Enfermeiro de Plantão');
+    setNewUserSector(isCoordenador ? currentUser.sector : 'UTI');
+    setNewUserReg('');
+    setNewUserFunctionCode('');
+    setNewUserGf('');
+    setNewUserPhone('(11) 98000-0000');
+    setNewUserStatus('ativo');
+    setShowFormPassword(false);
+    setShowAddUserModal(true);
+  };
+
+  const handleOpenEditUserModal = (usr: User) => {
+    setEditingUserId(usr.id);
+    setNewUserName(usr.name);
+    setNewUserEmail(usr.email);
+    setNewUserPassword(usr.password || '');
+    setNewUserRole(usr.role);
+    setNewUserRoleTitle(usr.roleTitle);
+    setNewUserSector(usr.sector);
+    setNewUserReg(usr.registrationNumber);
+    setNewUserFunctionCode(usr.functionCode || '');
+    setNewUserGf(usr.gf || '');
+    setNewUserPhone(usr.phone || '');
+    setNewUserStatus(usr.status || 'ativo');
+    setShowFormPassword(false);
+    setShowAddUserModal(true);
+  };
+
+  const handleOpenPasswordModal = (usr: User) => {
+    setPasswordModalUser(usr);
+    setEditPasswordValue(usr.password || '');
+    setConfirmPasswordValue(usr.password || '');
+    setShowPasswordText(false);
+    setPasswordCopied(false);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+  };
+
+  const handleGeneratePassword = () => {
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const generated = `Hosp@${randomDigits}!`;
+    setEditPasswordValue(generated);
+    setConfirmPasswordValue(generated);
+    setShowPasswordText(true);
+  };
+
+  const handleGenerateFormPassword = () => {
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const generated = `Hosp@${randomDigits}!`;
+    setNewUserPassword(generated);
+    setShowFormPassword(true);
+  };
+
+  const handleCopyPassword = (pwd: string) => {
+    if (!pwd) return;
+    navigator.clipboard.writeText(pwd);
+    setPasswordCopied(true);
+    setTimeout(() => setPasswordCopied(false), 2500);
+  };
+
+  const handleSavePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordModalUser) return;
+    if (editPasswordValue.length < 4) {
+      setPasswordError('A senha deve conter no mínimo 4 caracteres.');
+      return;
+    }
+    if (editPasswordValue !== confirmPasswordValue) {
+      setPasswordError('As senhas digitadas não coincidem.');
+      return;
+    }
+
+    const updated = updateUser(passwordModalUser.id, { password: editPasswordValue });
+    if (updated && updated.id === currentUser.id && onSwitchUser) {
+      onSwitchUser(updated);
+    }
+    refreshUsers();
+    setPasswordSuccess(`Senha do usuário "${passwordModalUser.name}" atualizada com sucesso!`);
+    setTimeout(() => {
+      setPasswordModalUser(null);
+      setPasswordSuccess(null);
+      setPasswordError(null);
+    }, 1200);
+  };
+
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName.trim() || !newUserEmail.trim()) return;
 
-    addUser({
-      name: newUserName.trim(),
-      email: newUserEmail.trim(),
-      role: newUserRole,
-      roleTitle:
-        newUserRoleTitle.trim() ||
-        (newUserRole === 'solicitante'
-          ? 'Enfermeiro de Plantão'
-          : newUserRole === 'coordenador'
-          ? 'Coordenador de Enfermagem'
-          : newUserRole === 'denf'
-          ? 'Diretoria de Enfermagem (RT)'
-          : 'Administrador de TI'),
-      sector: newUserSector.trim(),
-      registrationNumber: newUserReg.trim() || (newUserRole === 'admin' ? 'ADM-NOVO' : 'COREN-NOVO'),
-      phone: newUserPhone.trim() || '(11) 99999-0000',
-      status: 'ativo',
-    });
+    if (editingUserId) {
+      const updated = updateUser(editingUserId, {
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        password: newUserPassword.trim() || undefined,
+        role: newUserRole,
+        roleTitle:
+          newUserRoleTitle.trim() ||
+          (newUserRole === 'solicitante'
+            ? 'Enfermeiro de Plantão'
+            : newUserRole === 'coordenador'
+            ? 'Coordenador de Enfermagem'
+            : newUserRole === 'denf'
+            ? 'Diretoria de Enfermagem (RT)'
+            : 'Administrador de TI'),
+        sector: newUserSector.trim(),
+        registrationNumber: newUserReg.trim() || (newUserRole === 'admin' ? 'ADM-NOVO' : 'COREN-NOVO'),
+        functionCode: newUserFunctionCode.trim() || undefined,
+        gf: newUserGf.trim() || undefined,
+        phone: newUserPhone.trim() || '(11) 99999-0000',
+        status: newUserStatus,
+      });
+
+      if (updated && updated.id === currentUser.id && onSwitchUser) {
+        onSwitchUser(updated);
+      }
+    } else {
+      addUser({
+        name: newUserName.trim(),
+        email: newUserEmail.trim(),
+        password: newUserPassword.trim() || 'hospital@2026',
+        role: newUserRole,
+        roleTitle:
+          newUserRoleTitle.trim() ||
+          (newUserRole === 'solicitante'
+            ? 'Enfermeiro de Plantão'
+            : newUserRole === 'coordenador'
+            ? 'Coordenador de Enfermagem'
+            : newUserRole === 'denf'
+            ? 'Diretoria de Enfermagem (RT)'
+            : 'Administrador de TI'),
+        sector: newUserSector.trim(),
+        registrationNumber: newUserReg.trim() || (newUserRole === 'admin' ? 'ADM-NOVO' : 'COREN-NOVO'),
+        functionCode: newUserFunctionCode.trim() || undefined,
+        gf: newUserGf.trim() || undefined,
+        phone: newUserPhone.trim() || '(11) 99999-0000',
+        status: newUserStatus,
+      });
+    }
 
     refreshUsers();
     setShowAddUserModal(false);
+    setEditingUserId(null);
     setNewUserName('');
     setNewUserEmail('');
+    setNewUserPassword('');
     setNewUserReg('');
+    setNewUserFunctionCode('');
+    setNewUserGf('');
     setNewUserPhone('');
+    setNewUserStatus('ativo');
   };
 
   const handleToggleStatus = (userId: string) => {
@@ -791,49 +940,71 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 1: GESTÃO DE USUÁRIOS */}
+      {/* TAB 1: GESTÃO DE USUÁRIOS & CONTAS DE ACESSO */}
       {activeTab === 'users' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F9F7F2] p-4 rounded-2xl border border-[#E8E6D9]">
             <div>
-              <h3 className="font-bold text-sm text-[#2D2D2A]">Usuários Cadastrados no Hospital</h3>
+              <h3 className="font-bold text-sm text-[#2D2D2A] flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#5A5A40]" />
+                Contas de Acesso & Operadores Hospitalares
+              </h3>
               <p className="text-xs text-[#7D7D72]">
-                Controle de operadores, setores de lotação e perfis de permissão legal.
+                Gerenciamento de credenciais, edição cadastral completa, redefinição de senhas e perfis de permissão.
               </p>
             </div>
             <button
               id="btn-add-user"
-              onClick={() => setShowAddUserModal(true)}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs transition-all inline-flex items-center gap-1.5 self-start sm:self-auto"
+              onClick={handleOpenAddUserModal}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs transition-all inline-flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
             >
               <UserPlus className="w-4 h-4" />
               <span>Novo Usuário</span>
             </button>
           </div>
 
-          {/* Modal / Formulário de Novo Usuário */}
+          {/* Modal / Formulário de Cadastro ou Edição de Usuário */}
           {showAddUserModal && (
             <form
               onSubmit={handleCreateUser}
               className="bg-white border-2 border-[#5A5A40]/40 rounded-2xl p-5 space-y-4 shadow-sm animate-in fade-in"
             >
               <div className="flex items-center justify-between pb-3 border-b border-[#E8E6D9]">
-                <h4 className="font-serif font-bold text-base text-[#2D2D2A] flex items-center gap-2">
-                  <UserPlus className="w-4 h-4 text-[#5A5A40]" />
-                  Cadastrar Novo Usuário
-                </h4>
+                <div>
+                  <h4 className="font-serif font-bold text-base text-[#2D2D2A] flex items-center gap-2">
+                    {editingUserId ? (
+                      <>
+                        <Edit2 className="w-4 h-4 text-[#5A5A40]" />
+                        Editar Cadastro do Usuário
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4 text-[#5A5A40]" />
+                        Cadastrar Novo Usuário
+                      </>
+                    )}
+                  </h4>
+                  <p className="text-xs text-[#7D7D72] mt-0.5">
+                    {editingUserId
+                      ? 'Atualize os dados cadastrais, perfil de acesso e senha deste colaborador.'
+                      : 'Preencha os dados e credencial de login para liberar o acesso ao sistema.'}
+                  </p>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setShowAddUserModal(false)}
+                  onClick={() => {
+                    setShowAddUserModal(false);
+                    setEditingUserId(null);
+                  }}
                   className="p-1 rounded-lg text-[#7D7D72] hover:bg-[#F9F7F2]"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 text-xs">
                 <div>
-                  <label className="font-bold text-[#2D2D2A] block mb-1">Nome Completo</label>
+                  <label className="font-bold text-[#2D2D2A] block mb-1">Nome Completo *</label>
                   <input
                     type="text"
                     required
@@ -845,7 +1016,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-bold text-[#2D2D2A] block mb-1">E-mail Institucional</label>
+                  <label className="font-bold text-[#2D2D2A] block mb-1">E-mail Institucional (Login) *</label>
                   <input
                     type="email"
                     required
@@ -903,30 +1074,118 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-bold text-[#2D2D2A] block mb-1">Registro Profissional (COREN / Matrícula)</label>
+                  <label className="font-bold text-[#2D2D2A] block mb-1">Registro / Matrícula</label>
                   <input
                     type="text"
-                    placeholder="Ex: COREN-SP 123456"
+                    placeholder="Ex: 1288646 ou COREN-SP 123456"
                     value={newUserReg}
                     onChange={(e) => setNewUserReg(e.target.value)}
                     className="w-full p-2.5 rounded-xl border border-[#E8E6D9] focus:outline-none focus:border-[#5A5A40]"
                   />
                 </div>
+
+                <div>
+                  <label className="font-bold text-[#2D2D2A] block mb-1">Código da Função (EBSERH/HU)</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: 3911000102"
+                    value={newUserFunctionCode}
+                    onChange={(e) => setNewUserFunctionCode(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-[#E8E6D9] focus:outline-none focus:border-[#5A5A40] font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-[#2D2D2A] block mb-1">Gratificação / GF</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: GF0027"
+                    value={newUserGf}
+                    onChange={(e) => setNewUserGf(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-[#E8E6D9] focus:outline-none focus:border-[#5A5A40] font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-[#2D2D2A] block mb-1">Telefone / Ramal</label>
+                  <input
+                    type="text"
+                    placeholder="(11) 98765-4321"
+                    value={newUserPhone}
+                    onChange={(e) => setNewUserPhone(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-[#E8E6D9] focus:outline-none focus:border-[#5A5A40]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-[#2D2D2A] block mb-1">Status da Conta</label>
+                  <select
+                    value={newUserStatus}
+                    onChange={(e) => setNewUserStatus(e.target.value as 'ativo' | 'inativo')}
+                    className="w-full p-2.5 rounded-xl border border-[#E8E6D9] focus:outline-none focus:border-[#5A5A40] bg-white"
+                  >
+                    <option value="ativo">Ativo (Acesso Liberado)</option>
+                    <option value="inativo">Inativo (Acesso Bloqueado)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="font-bold text-[#2D2D2A] flex items-center gap-1.5">
+                      <Key className="w-3.5 h-3.5 text-[#5A5A40]" />
+                      <span>Senha de Acesso</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGenerateFormPassword}
+                      className="text-[10px] text-[#5A5A40] hover:text-[#2D2D2A] font-semibold underline flex items-center gap-0.5"
+                    >
+                      <Sparkles className="w-2.5 h-2.5" />
+                      <span>Gerar Senha</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showFormPassword ? 'text' : 'password'}
+                      placeholder={editingUserId ? 'Deixe em branco para manter a atual' : 'Digite a senha (mín. 4 caracteres)'}
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      className="w-full p-2.5 pr-9 rounded-xl border border-[#E8E6D9] focus:outline-none focus:border-[#5A5A40] font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowFormPassword(!showFormPassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7D7D72] hover:text-[#2D2D2A] p-0.5"
+                      title={showFormPassword ? 'Ocultar senha' : 'Exibir senha'}
+                    >
+                      {showFormPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#7D7D72] mt-1">
+                    {editingUserId
+                      ? 'Preencha caso deseje redefinir a senha deste colaborador.'
+                      : 'Senha inicial para login deste operador.'}
+                  </p>
+                </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#E8E6D9]">
                 <button
                   type="button"
-                  onClick={() => setShowAddUserModal(false)}
+                  onClick={() => {
+                    setShowAddUserModal(false);
+                    setEditingUserId(null);
+                  }}
                   className="px-4 py-2 rounded-xl text-xs font-medium border border-[#E8E6D9] hover:bg-[#F9F7F2] text-[#7D7D72]"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                 >
-                  Confirmar Cadastro
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{editingUserId ? 'Salvar Alterações' : 'Confirmar Cadastro'}</span>
                 </button>
               </div>
             </form>
@@ -935,13 +1194,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {/* Tabela de Usuários */}
           <div className="bg-white rounded-2xl shadow-xs border border-[#E8E6D9] overflow-hidden">
             <div className="overflow-x-auto touch-scroll">
-              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+              <table className="w-full text-left text-xs border-collapse min-w-[850px]">
                 <thead>
                   <tr className="bg-[#F9F7F2] text-[#7D7D72] font-bold border-b border-[#E8E6D9] uppercase text-[10px] tracking-wider">
                     <th className="py-3 px-4">Profissional</th>
                     <th className="py-3 px-4">Papel & Função</th>
                     <th className="py-3 px-4">Setor</th>
                     <th className="py-3 px-4">Registro</th>
+                    <th className="py-3 px-4">Credencial / Senha</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4 text-right">Ações</th>
                   </tr>
@@ -950,8 +1210,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   {usersList.map((usr) => (
                     <tr key={usr.id} className="hover:bg-[#F9F7F2]/50 transition-colors">
                       <td className="py-3.5 px-4 font-medium text-[#2D2D2A]">
-                        <div className="font-bold">{usr.name}</div>
+                        <div className="font-bold flex items-center gap-1.5">
+                          <span>{usr.name}</span>
+                          {usr.id === currentUser.id && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-[#5A5A40] text-white">
+                              Você
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[11px] text-[#7D7D72]">{usr.email}</div>
+                        {usr.phone && (
+                          <div className="text-[10px] text-[#A0A090] mt-0.5">{usr.phone}</div>
+                        )}
                       </td>
                       <td className="py-3.5 px-4">
                         <span
@@ -976,7 +1246,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <div className="text-[11px] text-[#7D7D72] mt-0.5">{usr.roleTitle}</div>
                       </td>
                       <td className="py-3.5 px-4 text-[#2D2D2A] font-medium">{usr.sector}</td>
-                      <td className="py-3.5 px-4 font-mono text-[11px] text-[#7D7D72]">{usr.registrationNumber}</td>
+                      <td className="py-3.5 px-4 font-mono text-[11px] text-[#7D7D72]">
+                        <div className="font-bold text-[#2D2D2A]">{usr.registrationNumber}</div>
+                        {(usr.functionCode || usr.gf) && (
+                          <div className="text-[10px] text-[#8C9C82] flex items-center gap-1 mt-0.5 whitespace-nowrap">
+                            {usr.functionCode && <span>FC: {usr.functionCode}</span>}
+                            {usr.functionCode && usr.gf && <span>•</span>}
+                            {usr.gf && <span className="font-bold text-[#5A5A40]">{usr.gf}</span>}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <div className="font-mono text-[11px] bg-[#F0EFEA] px-2 py-0.5 rounded-md text-[#5A5A40] border border-[#E8E6D9] flex items-center gap-1">
+                            <Lock className="w-3 h-3 text-[#7D7D72]" />
+                            <span>••••••••</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPasswordModal(usr)}
+                            className="p-1 rounded-md text-[#5A5A40] hover:bg-[#5A5A40]/10 transition-colors"
+                            title="Editar senha deste usuário"
+                          >
+                            <Key className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
                       <td className="py-3.5 px-4">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -988,26 +1283,47 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           {usr.status === 'inativo' ? 'Inativo' : 'Ativo'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-right space-x-1.5">
-                        <button
-                          onClick={() => handleToggleStatus(usr.id)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
-                            usr.status === 'inativo'
-                              ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
-                              : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
-                          }`}
-                        >
-                          {usr.status === 'inativo' ? 'Reativar' : 'Inativar'}
-                        </button>
-                        {usr.id !== currentUser.id && (
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => handleDeleteUser(usr.id)}
-                            className="p-1.5 rounded-lg text-[#7D7D72] hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="Remover usuário"
+                            onClick={() => handleOpenEditUserModal(usr)}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#5A5A40]/10 text-[#5A5A40] hover:bg-[#5A5A40]/20 border border-[#5A5A40]/20 transition-colors inline-flex items-center gap-1"
+                            title="Editar cadastro completo deste colaborador"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Edit2 className="w-3 h-3" />
+                            <span>Editar</span>
                           </button>
-                        )}
+
+                          <button
+                            onClick={() => handleOpenPasswordModal(usr)}
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#D1A661]/15 text-[#7A581E] hover:bg-[#D1A661]/25 border border-[#D1A661]/30 transition-colors inline-flex items-center gap-1"
+                            title="Editar ou redefinir senha de acesso"
+                          >
+                            <Key className="w-3 h-3" />
+                            <span>Senha</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleToggleStatus(usr.id)}
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                              usr.status === 'inativo'
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                                : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
+                            }`}
+                          >
+                            {usr.status === 'inativo' ? 'Reativar' : 'Inativar'}
+                          </button>
+
+                          {usr.id !== currentUser.id && (
+                            <button
+                              onClick={() => handleDeleteUser(usr.id)}
+                              className="p-1.5 rounded-lg text-[#7D7D72] hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Remover usuário"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1015,6 +1331,161 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </table>
             </div>
           </div>
+
+          {/* MODAL DEDICADO: EDITAR SENHA DO USUÁRIO */}
+          {passwordModalUser && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+              <div className="bg-white rounded-2xl shadow-xl border border-[#E8E6D9] max-w-md w-full p-5 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#E8E6D9]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-[#5A5A40]/10 text-[#5A5A40] flex items-center justify-center">
+                      <Key className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-serif font-bold text-base text-[#2D2D2A]">
+                        Editar Senha de Acesso
+                      </h4>
+                      <p className="text-[11px] text-[#7D7D72]">
+                        Redefinição de credencial institucional
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPasswordModalUser(null);
+                      setPasswordError(null);
+                      setPasswordSuccess(null);
+                    }}
+                    className="p-1.5 rounded-lg text-[#7D7D72] hover:bg-[#F9F7F2]"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Card do Usuário Selecionado */}
+                <div className="bg-[#F9F7F2] p-3 rounded-xl border border-[#E8E6D9] flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-bold text-[#2D2D2A]">{passwordModalUser.name}</div>
+                    <div className="text-[11px] text-[#7D7D72]">{passwordModalUser.email}</div>
+                    <div className="text-[10px] text-[#A0A090] mt-0.5">{passwordModalUser.sector} • {passwordModalUser.roleTitle}</div>
+                  </div>
+                  <span
+                    className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                      passwordModalUser.role === 'admin'
+                        ? 'bg-[#2D2D2A] text-white'
+                        : passwordModalUser.role === 'denf'
+                        ? 'bg-[#5A5A40] text-white'
+                        : passwordModalUser.role === 'coordenador'
+                        ? 'bg-[#D1A661]/30 text-[#7A581E]'
+                        : 'bg-[#E8E6D9] text-[#5A5A40]'
+                    }`}
+                  >
+                    {passwordModalUser.role}
+                  </span>
+                </div>
+
+                {passwordError && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{passwordError}</span>
+                  </div>
+                )}
+
+                {passwordSuccess && (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{passwordSuccess}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSavePassword} className="space-y-3.5 text-xs">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-[#2D2D2A]">Nova Senha *</label>
+                      <button
+                        type="button"
+                        onClick={handleGeneratePassword}
+                        className="text-[10px] text-[#5A5A40] hover:text-[#2D2D2A] font-semibold underline flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>Gerar Senha Segura</span>
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showPasswordText ? 'text' : 'password'}
+                        required
+                        value={editPasswordValue}
+                        onChange={(e) => {
+                          setEditPasswordValue(e.target.value);
+                          setPasswordError(null);
+                        }}
+                        placeholder="Digite a nova senha"
+                        className="w-full p-2.5 pr-9 rounded-xl border border-[#E8E6D9] focus:outline-none focus:border-[#5A5A40] font-mono text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPasswordText(!showPasswordText)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7D7D72] hover:text-[#2D2D2A] p-0.5"
+                        title={showPasswordText ? 'Ocultar senha' : 'Exibir senha'}
+                      >
+                        {showPasswordText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#2D2D2A] block mb-1">Confirmar Nova Senha *</label>
+                    <input
+                      type={showPasswordText ? 'text' : 'password'}
+                      required
+                      value={confirmPasswordValue}
+                      onChange={(e) => {
+                        setConfirmPasswordValue(e.target.value);
+                        setPasswordError(null);
+                      }}
+                      placeholder="Repita a nova senha"
+                      className="w-full p-2.5 rounded-xl border border-[#E8E6D9] focus:outline-none focus:border-[#5A5A40] font-mono text-xs"
+                    />
+                  </div>
+
+                  {editPasswordValue && (
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPassword(editPasswordValue)}
+                        className="text-[11px] font-medium text-[#5A5A40] hover:underline flex items-center gap-1"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>{passwordCopied ? 'Senha Copiada!' : 'Copiar Senha para Área de Transferência'}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-[#E8E6D9]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPasswordModalUser(null);
+                        setPasswordError(null);
+                        setPasswordSuccess(null);
+                      }}
+                      className="px-4 py-2 rounded-xl text-xs font-medium border border-[#E8E6D9] hover:bg-[#F9F7F2] text-[#7D7D72]"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl text-xs font-bold bg-[#5A5A40] hover:bg-[#4A4A35] text-white shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Salvar Nova Senha</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

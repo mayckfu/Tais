@@ -291,10 +291,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <div className="px-4 py-2 border-b border-[#E8E6D9]">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-[#8C9C82]">
-                      Alternar Perfil de Teste (4 Perfis)
+                      Alternar Usuário / Operador ({allUsers.length})
                     </p>
                     <p className="text-[11px] text-[#7D7D72] mt-0.5">
-                      Troque de usuário para validar fluxos específicos de cada permissão:
+                      Troque de usuário para operar o sistema com a sua lotação e permissão:
                     </p>
                   </div>
 

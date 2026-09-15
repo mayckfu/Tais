@@ -4,6 +4,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: UserRole;
   roleTitle: string; // e.g., 'Enfermeiro Assistencial', 'Coordenador de UTI', 'Gerente DENF', 'Administrador'
   sector: string;
@@ -11,6 +12,8 @@ export interface User {
   status?: 'ativo' | 'inativo';
   phone?: string;
   createdDate?: string;
+  functionCode?: string; // Código de Função (ex: 3911000102)
+  gf?: string; // Gratificação de Função (ex: GF0027)
 }
 
 export type RequestStatus =
